@@ -26,7 +26,11 @@ This was also uploaded to github: [https://github.com/VegaDeftwing/AnalogDrumMac
 
 ## Thursday, Aug 5th
 
+**45min**  Thinking about the modular connections. Making a very large PCB would be prohibitivly expensive, so potentially using something like this [24 pin](https://www.amazon.com/Davitu-Connector-3-96mm-Solder-Socket/dp/B07MD3GMCP/ref=pd_lpo_2?pd_rd_i=B07MD3GMCP&psc=1) PCB edge connectior would work well ,then just have each of those mounted on a small PCB that then connects back to the main board using [9 pin JST connectors](https://www.amazon.com/LATTECH-Female-Connector-Electric-Length/dp/B07Q8RTNMF/ref=sr_1_3?dchild=1&keywords=9+pin+jst&qid=1630000964&s=industrial&sr=1-3). This also has the advantage of making the final case design more flexible, as these edge connected daughter boards could move around. The downside? The PCBs with each drum module will probably need to be at 90° to the main board or have a weird extension PCB to adapt to the right angle
 
+<img src="../Images/daughterboard.svg" alt="daughterboard" width="400" />
+
+This incurs a downside where the PCB max size will be limited by the module depth, which is almost certainly smaller than the just a hair smaller than the pannel W*H that would be possible without this 90° rotation. and makes stacking PCBs for more complexity much more awkward. It could be that none of our circuits will have issues meeting these size constraitns, but it is a tough call to make early on. the edge connector could still be adapted with right angle pin headers, but if that's done applying the force to slot the card in may cause mechanical failures.
 
 ## Friday, Aug 6th
 
