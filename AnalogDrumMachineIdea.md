@@ -2,9 +2,9 @@
 
 
 
-![Untitled-2021-08-15-0126](exclidraw.svg)
+![Exclidraw](./Images/exclidraw.svg)
 
-## Tenative Feature List:
+## Tentative Feature List:
 
 ### Modular Design
 
@@ -33,7 +33,7 @@
   - Per channel clock division/multiplication?
   - MIDI sync?
   - Polyrhytms (Multiple clocks)?
-  - Euculidian Clocking?
+  - Euclidean Clocking?
 - Might add a few extra channels of samples based playback, on top of the analog playback? Maybe 8Analog/8Digital, sorta a like the [Analog Rythm](https://www.elektron.se/products/analog-rytm-mkii/)
 - [TODO] See sequencers from VCV 
 
@@ -52,14 +52,14 @@ There's no reason these would all have to be analog, could easily use drop in se
 Effect modules need to output a duplicate signal if only acting as mono, to keep the output stereo
 
 * BBD Delay
-* Germainum fuzz
+* Germanium fuzz
 * VFD drive
 
 ## Various Resources:
 
 [The section about percussion on Vega's website](https://opguides.info/music/instruments/perc/)
 
-[ECE4450 Analog Circuits for Music Synthesis (Youtube, Georgia Tech)](https://www.youtube.com/watch?v=mYk8r3QlNi8&list=PLOunECWxELQS5bMdWo9VhmZtsCjhjYNcV)
+[ECE4450 Analog Circuits for Music Synthesis (YouTube, Georgia Tech)](https://www.youtube.com/watch?v=mYk8r3QlNi8&list=PLOunECWxELQS5bMdWo9VhmZtsCjhjYNcV)
 
 [single tranistor oscillator](https://www.youtube.com/watch?v=zCTLeNxge54)
 
