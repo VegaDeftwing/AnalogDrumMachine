@@ -6,11 +6,11 @@
 
   TR-808 Bass is simple, could easily add hard clipping, and might be able to put wide controls on it to make it cover more range. There's also the [Kraft Drum](https://syntherjack.net/kraft-drum/).
 
-  Regradless of what we do, I think adding hard clipping by letting the volume be turned up and using a diodle clamping circuit would be a good idea
+  Regardless of what we do, I think adding hard clipping by letting the volume be turned up and using a diode clamping circuit would be a good idea
 
 - [ ] Snare drum
 
-  The 808's appears to be the most redily available circuit online. Some online sources refrence pinging a filter with a burst of white noise, or just white noise, an envelope, and a bandpass filter. There's also [this reddit post](https://www.reddit.com/r/synthdiy/comments/ee4jbt/a_fairly_convincing_synth_snaredrum_i_am_working/) which has particularly good sounding snare, but only part of the circuit is available
+  The 808's appears to be the most readily available circuit online. Some online sources reference pinging a filter with a burst of white noise, or just white noise, an envelope, and a bandpass filter. There's also [this reddit post](https://www.reddit.com/r/synthdiy/comments/ee4jbt/a_fairly_convincing_synth_snaredrum_i_am_working/) which has particularly good sounding snare, but only part of the circuit is available
 
 - [ ] Closed Hi-Hat
 
@@ -30,7 +30,7 @@
 
 - [ ] Karplus Strong Synthesis
 
-  We have some MN3003 BBD IC's courtsouy of Hoffman, ~~these are 64 stage and should be about perfect for Karplus strong,~~ A bit less sure now. Refrecnce implimentions seem to be using 256, 1024, or 2048 stage. This might still be okay, but it might mean our oscilations are high pitch. There's also [this op-amp karplus strong circuit](https://electro-music.com/forum/topic-55225.html) which is just an all-pass (phaser) acting as the delay and self oscilating. I'm not sure this really counts as karplus strong though, still, sounds good anyway. If we do want to do BBD based, the MN3007's seem to still be affordable, though shipping time may be an issue. 
+  We have some MN3003 BBD IC's courtesy of Hoffman, ~~these are 64 stage and should be about perfect for Karplus strong,~~ A bit less sure now. Reference implementations seem to be using 256, 1024, or 2048 stage. This might still be okay, but it might mean our oscillators are high pitch. There's also [this op-amp karplus strong circuit](https://electro-music.com/forum/topic-55225.html) which is just an all-pass (phaser) acting as the delay and self oscilating. I'm not sure this really counts as karplus strong though, still, sounds good anyway. If we do want to do BBD based, the MN3007's seem to still be affordable, though shipping time may be an issue. 
 
 - [ ] Sample based
 
@@ -38,10 +38,10 @@
 
 - [ ] Toms
   
-  Most drum machines have a 3-tom section with Low-Tom (LT), Mid-Tom (MT) and High-Tom (HT). Doing this with three modules in our 6-module machine would be a bit on the waseful side, so this might be the module that forces us to really use that bus system and have the modules/cards identify themselves to the micro controller. If we do that we could make the sequencer recognize what slot has the Tom module and varry the pitch per step. Of course, this does limit it to one tom sound at a time, but it condoneses things down dramatically. We'd also have to figure out how to enter which step gets what pitch into the sequencer and how to send 3 triggers (maybe an I2c bus that every module connects to, and then this module would have something that breaks out 3 triggers?) I think this might mean we'd want to add a few extra buttons to the main interface maybe "ALT 1" and "ALT 2" which would *normally* be for accents, but would be tom sound in this case?
+  Most drum machines have a 3-tom section with Low-Tom (LT), Mid-Tom (MT) and High-Tom (HT). Doing this with three modules in our 6-module machine would be a bit on the wasteful side, so this might be the module that forces us to really use that bus system and have the modules/cards identify themselves to the micro controller. If we do that we could make the sequencer recognize what slot has the Tom module and vary the pitch per step. Of course, this does limit it to one tom sound at a time, but it condenses things down dramatically. We'd also have to figure out how to enter which step gets what pitch into the sequencer and how to send 3 triggers (maybe an I2c bus that every module connects to, and then this module would have something that breaks out 3 triggers?) I think this might mean we'd want to add a few extra buttons to the main interface maybe "ALT 1" and "ALT 2" which would *normally* be for accents, but would be tom sound in this case?
   
 - [ ] Fake Sidechaine'd Drone/Bass
   
-  A lot of music will use a *Compressor* with it's *Sidechain* input. Compressors listen to the incoming signal and reduce the volume if the incoming signal is above a threshold, this reduction is on an evelope, so it has it's own attack and release time. Usually compressors listen to the same signal they're affecting, but this isn't required, when the signal being reduced isn't the same as the signal being monitored for peaks, this is called sidechaining. Often, this is done with a kick drum and the bass sound, so that whenever the kick plays the bass will get quiter, making the kick sound more clear as they would likely otherwise take up the same frequencies. This can be faked rather easily though, as we could simply make a module which instead of being triggered to play a sound, is triggered to have the volume duck for a moment, but otherwise droning endlessly. Combined with the above idea of having two accent buttons to change the toms, this might be capable of full bass lines, that is, if a bass line with only 3 pitches is okay. 
+  A lot of music will use a *Compressor* with it's *Sidechain* input. Compressors listen to the incoming signal and reduce the volume if the incoming signal is above a threshold, this reduction is on an envelope, so it has it's own attack and release time. Usually compressors listen to the same signal they're affecting, but this isn't required, when the signal being reduced isn't the same as the signal being monitored for peaks, this is called sidechaining. Often, this is done with a kick drum and the bass sound, so that whenever the kick plays the bass will get quieter, making the kick sound more clear as they would likely otherwise take up the same frequencies. This can be faked rather easily though, as we could simply make a module which instead of being triggered to play a sound, is triggered to have the volume duck for a moment, but otherwise droning endlessly. Combined with the above idea of having two accent buttons to change the toms, this might be capable of full bass lines, that is, if a bass line with only 3 pitches is okay. 
   
   
