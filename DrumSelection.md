@@ -15,6 +15,8 @@
 - [ ] Closed Hi-Hat
 
   [This post](https://www.reddit.com/r/synthdiy/comments/g04j7z/modular_in_a_week_hihat_and_snare/) links to something that is billed as either a hat or snare, and uses a vactrol so it's definitely different from the traditional 808. There's also [This project on github, which has kicad files](https://github.com/benjiao/MetallicHats), and uses 6 square wave oscilattors. 
+  
+  see [DIY Vactrol](https://sound-au.com/project200.htm)
 
 **More complex voices**
 
