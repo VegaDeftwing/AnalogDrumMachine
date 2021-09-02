@@ -16,9 +16,11 @@
 
 **1.5hr** Researched what effect modules would be best to move forward with. As of now the plan is to have fixed volume, filter, and compression effects along with delay, comb filtering, sample rate and bit-depth reduction, and distortion modules. More details on these choices can be found in `EffectSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
-## Wednesday, Aug 4th -- W: T:
+## Wednesday, Aug 4th -- W:6.00 T:15.50
 
+**0.5hr** Group meeting with Bauer, discussed project overview, talked about some interesting parts
 
+**1.5hr** Thought about how to impliment the sequncer and busses from a high level, there's still a lot of thinking to be done. see `SequencerAndBusSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
 ## Thursday, Aug 5th -- W: T:
 
