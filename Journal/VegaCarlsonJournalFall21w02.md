@@ -22,7 +22,9 @@
 
 **1.5hr** Thought about how to impliment the sequncer and busses from a high level, there's still a lot of thinking to be done. see `SequencerAndBusSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
-## Thursday, Aug 5th -- W: T:
+## Thursday, Aug 5th -- W:6.50 T:16.00
+
+**0.5hr** Continued work on  `SequencerAndBusSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
 
 
