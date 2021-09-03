@@ -26,13 +26,11 @@
 
 **0.5hr** Continued work on  `SequencerAndBusSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
-
-
 ## Friday, Aug 6th -- W: T:
 
-
+**1hr** Meeting with group
 
 ---
 
-**Week ending 8/27 total = 9.5hrs**
+**Week ending 8/27 total = 8.0hrs**
 
