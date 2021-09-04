@@ -26,9 +26,11 @@
 
 **0.5hr** Continued work on  `SequencerAndBusSelection.md` in the [project's GitHub repository](https://github.com/VegaDeftwing/AnalogDrumMachine).
 
-## Friday, Aug 6th -- W: T:
+## Friday, Aug 6th -- W:8.00 T:17.50
 
 **1hr** Meeting with group
+
+**0.5hr** reading up on the TR-808 Bass Drum circuit, to try to follow along with group members while we're still working on otherwise seperate tasks
 
 ---
 
