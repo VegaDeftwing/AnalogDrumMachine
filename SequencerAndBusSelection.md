@@ -79,18 +79,36 @@ The sequencer needs quite a few components
 
 #### Micro Controller
 
-| Choice     | Pros                                                         | Cons                                                         |
-| ---------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Pi Pico    | PIOs may be useful for timing, detecting double/tripple button presses, interfacing with RGB Leds, etc. Dual Core | New, lacks support                                           |
-| Black Pill | USB-C, more libraries and documention than Pico (older)      | Not as fast as pico                                          |
-| Daisy      | Onboard DSP, much more powerful                              | expensive, DSP may not be useful                             |
-| pi-zero    | Lots of power- could do good looking graphics, could load existing software MIDI sequencers and make the majority of the sequencer just interact as a MIDI controller. USB MIDI adapter circuits could be used to get the tempo, external controllers could be connected via USB. Programming can be done is higher level langugages, allowing for rapid development of more interesting sequencing systems | Expensive (comparitevly), high power draw, would still need other micro controllers for real time actions. Slow boot time. Potential latency issues going from the micro driving the sequncer, into the pi, out another micro to send triggers. Harder to ensure real time operation. |
+| Choice          | Pros                                                         | Cons                                                         |
+| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Pi Pico         | PIOs may be useful for timing, detecting double/tripple button presses, interfacing with RGB Leds, etc. Dual Core | New, lacks support                                           |
+| Black Pill      | USB-C, more libraries and documention than Pico (older)      | Not as fast as pico                                          |
+| Daisy           | Onboard DSP, much more powerful                              | expensive, DSP may not be useful                             |
+| pi (or any SBC) | Lots of power- could do good looking graphics, could load existing software MIDI sequencers and make the majority of the sequencer just interact as a MIDI controller. USB MIDI adapter circuits could be used to get the tempo, external controllers could be connected via USB. Programming can be done is higher level langugages, allowing for rapid development of more interesting sequencing systems | Expensive (comparitevly), high power draw, would still need other micro controllers for real time actions. Slow boot time. Potential latency issues going from the micro driving the sequncer, into the pi, out another micro to send triggers. Harder to ensure real time operation. |
 
 
 
----
+Using an SBC, probably a pi3b+ or pi4, seems like the best solution here as it will alleviate the issues that come with trying to do so many things - clock input, UI (buttons/encoders), display, output triggers, etc - in real time. Furthermore, the pi will be able to function as a audio sample output source using its built in audio output. This removes the cost of the sample based drum module and lets the UI for that module be much better. The biggest issues we foresee are high draw on the 5V rail to power the pi and noise coming from grounding- USB is nutritiously noisy, and this is likely how the sequencer MIDI input would be connected- via a sperate micro controller attached via USB. We will likely need to research using a linux-rt kernal on the ARM processor of the pi, as well as see what can be done to reduce boot time - possibly by disabling kernal modules.
 
-## Bus
+Using the audio out of the pi to replace the sample drum module slot-in changes our design in some more dramatic ways though and will likely necessitate a redesign of the initial mockup to accommodate more hardware buttons for the sake of selecting these sample channels. There's also a design choice of routing the left and right channels as individual mono channels that can then be sent along the effects bus or removing the sample based drums from the analog effect bus entirely and chaining the project to be more of a hybrid drum machine, with the sample based sounds being ran though their own DSP effects. The prior is more in line with the initial design, while the latter has the advantage of supporting stereo sample playback- useful both for actual stereo samples and for simple panning - as well as letting each sample track have its own effects, including those that are better served by DSP, such as reverb.
+
+There's also the option of using the pi as a mixer, taking the analog mix from the output of the summed effects channels from the analog drums and running it into a stereo audio input codec attached to the pi, so that DSP effects can be ran on the pi and then the sample drums simply mixed with this signal. This adds an ADC->DAC step at the end of an otherwise all analog audio signal chain though, which seems to defeat the purpose of the entire project a bit - if we do that, we may as well have made a digital drum machine to start.
+
+Using the pi also gives us the advantage of being able to use higher level programming languages, namely python and pure data, to define the function of the sequencer and any internal effects on the sounds. This also means that this could be exposed as a feature, being within the realm of an advanced user wanting to customize their experience. The [mididings](http://das.nasophon.de/mididings/) and [python-midi](https://github.com/vishnubob/python-midi) python libraries look particularly promising 
+
+As for the μC that will handle the buttons and leds, either a 32u4 or blackpill board seems reasonable- both because they already have existing support for MIDI - I (Vega) have experience with the 32u4 as a MIDI controller using the  [Arduino MIDI USB Library](https://www.arduino.cc/en/Reference/MIDIUSB) but have found that on the 32u4 it's easy to overwhelm the resources of the controller. The blackpill could run [opendeck](https://github.com/shanteacontrols/OpenDeck) which doesn't fully remove our need to code as some of the more advanced features we want will require some modification of the code, especially if we'd like to support double or triple button presses. The black pill does have support for the Arduino framework, so *in theory* the Arduino MIDI USB library should work; however, because implementing the MIDI protocol ourselves has such high potential to be a massive foot-gun it would be best to ensure this is the case first. If it does, then the Blackpill is an obvious choice as it gives us a backup in case whichever method we chose to use first doesn't work out.
+
+----
+
+Researched the Black Pill (STM32F411) & Pi Pico (RP2040) to see how their development chain looks & feels, with a particular focus on MIDI over USB libraries as implimenting from that from scratch would be a massive pain. Starting with the pico running circuitPython, as while there seem to be some raw-C implimentions of MIDI over USB on the pico, there's really no reason not to use circuitPython and ease development if we can.
+
+The Pi-Pico just works with CircuitPython. Using [This](https://blog.4dcu.be/diy/2021/05/20/MIDIpad.html) as example code and it's already functioning. Obviously we'd still have to write all the logic for the sequencer, but this is looking very promising. **however,** using circuitPython limits  us to only using one of the two cores on the pico. If necessary we might be able to get microPython working, which does support threading, and use [this hopefully still functional](https://github.com/cjbarnes18/micropython-midi) library. Another option is to do as that library recommends and just shoot data down the serial port and convert it to midi on the full-size pi we'll have in the project too; however, that is less than idea as class compliance just generally makes everything a bit easier. Using circuit python can also be seen as a feature for the end user too, as it means the function of the micro controller itself is end-user programmable, which for some things may be usefull- for example a user might want to adjust the timing for debouncing (to enable faster triple-pres inputs) or add some weird feature like a "trigger all" channel
+
+On the blue/black pill, the libopencm3 RTOS is an option and does provide a USB-MIDI library. Other options include the [USBComposite](https://github.com/arpruss/USBComposite_stm32f1) arduino library for STM32F1(bluepill) devices. For the Blackpill (F411, not the F401), it does appear it's possible to use microPython (not circuitPython) and a midi library. There's also [MBED](https://os.mbed.com/cookbook/USBMIDI) which has a [USB-MIDI](https://os.mbed.com/docs/mbed-os/v6.14/apis/usbmidi.html) library. I have some prior experience with mbed- the biggest feature for us would be its [Event handeling](https://os.mbed.com/docs/mbed-os/v6.14/apis/scheduling-rtos-and-event-handling.html) systems, which would make setting up a sequencer pretty easy. All of these are reasonable options should we not be able to use the pico, but until we have reason not to I don't see reason to explore them further as the pico really does appear to be the best option.
+
+Finally, boards using 32u4 which works with the normal Arduino midi library remains an option, albeit one I have had experience with in the past where the μC was dramatically under powered.
+
+## Bus Thinking
 
 There are actually *two* busses, one for sound sources and one for effects
 
@@ -114,7 +132,7 @@ Sound source modules need a variety of I/O
   - Either 5V or 3.3V would also be nice, as it would be ideal to have something that matches our trigger source and which can be used to power micro controllers easily without needing a seperate low voltage regulator on every module. This probably depends on the logic level of the micro controller or if the μC chosen has 5V tollerent I/O
   - Ground, obviously, is required. We may want to have seperate analog and and digital grounds, but more research into this is needed
 
-- Identifyier
+- Identifier
 
   This could be done in two ways: The cheap & easy way, or the complicated and expandable way
 
@@ -135,4 +153,42 @@ Sound source modules need a variety of I/O
     * Effects may draw more power, as tubes, DSP effects, etc. are all a bit more power hungry than the simple analog circuits of the drum modules. We'll need to keep this in mind when selecting a power supply
   * Identiyer
     * Should be the same as sound source modules
-  
+
+---
+
+## Bus Selection
+
+After talking with Mark a bit more, we're still unsure if we'd like to use digital potentiometers for some of the drum settings, allowing for more complex sequencing of parameters. Fortunately, most digipots run over i2c, so if we use that for the identifier we can just use it for digipots too. Basically, by at least running i2c to each module, the project is overall more flexible. It *may* be helpful to have a seperate i2c channel per module, but fortunately the pico can provide more than enough i2c channels to make this happen. This *might* require adding a second pico or just getting something to multiplex inputs so that we have enough gpio to hook up all the buttons/encorders/etc but neither option is hugely expensive or out of the question anyway.
+
+This leaves the buses spec'd as such:
+
+**Sound Sources:** 
+
+* Trigger input (kept as impulse-y as possible)
+* Sound output (Mono)
+* Power (-12V, +12V, 3.3V, Ground)
+* i2c
+* Presence (just a short when a module is present)
+
+Total = 9 pins
+
+**Effect Modules:**
+
+* Audio Input (Mono)
+* Audio Output (Stereo)
+* Power (-12V, +12V, 3.3V, Ground)
+* i2c
+* Presence (just a short when a module is present)
+
+Total = 10 pins
+
+### Bus Connector?
+
+Keeping the physical bus connection the same between module types means needing at least 10 pins. It would also be nice to have each pin only serve one purpose, regardless if used as an effect or source, just leaving unused pins not connected. This brings the requirement up to 11 pins (1 for presence, 2 for i2c, 4 for power, 2 for audio out, 1 for trigger in, 1 for audio in), so any connector with at least 11 pins should be fine, though physical size constraints are still a consideration. For simplicity, we'd like to stick with the standard 2.54mm spacing. While not physically the strongest or most user friendly connection, using the normal 2.54mm headers and sockets (like Arduino/Pi shields/hats) is a reasonable option given the ease of development and low cost as we could just solder to protoboard.
+
+## i2c parts?
+
+We need some i2c eeproms, some i2c digipots, and some i2c DACs (MCP4725 seem common) to test with. The particular part doesn't matter so much this early on, so long as we can test the concept.
+
+> The MCP4725 has an eeprom built in EEPROM, which may be able to be abused to serve as the module identifier. 2 for the price of 1! There's only 14 bits, of which 2 are config bits that we couldn't set arbitrarily and the other 12 are meant to store the startup (?) value for the DAC. Still, we should be just send a new value at power-on and re-use those bits for the module ID. This gives us 1 DAC per module 'for free'
+
