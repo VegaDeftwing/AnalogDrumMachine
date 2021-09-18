@@ -38,16 +38,19 @@ Finally, boards using 32u4 which works with the normal arduino midi library rema
 
 **0.5hr** - Got a pi hooked back up to SSH into at least, it has an old install of Raspbian. I'll need to set it up on a KVM and probably look into options for pi RT Kernel builds. I might poke my friends over at https://sleepycircuits.com who have a CM3 based video synth module they're pushing to its limits, see if they have any recomendations. I still have an older pull of their git repo from when I let them know they'd accidently left their not-supposed-to-be-public git repo baked into the "firmware image" (a `dd` of the pi's SD card after a raspbian install + their special sauce) so it might be worth just poking that to see what config changes they've done to raspbian.
 
-## Friday, Sep 17th -- W: T:
+## Friday, Sep 17th -- W:8.00 T:31.00
 
-- [ ] New mockup
-- [ ] Meeting
-- [ ] pseudo block diagram
-- [ ] Display selection
+**.7hr** - Met up with Kaleb in the morning to discuss project - namely bus structure and decisions about drum complexity
+
+**1.2hr** - Group meeting, see minutes
+
+**1.1hr** - Redesign of concept sketch
+
+![DrumMachineConcept2](../Images/DrumMachineConcept2.png)
 
 
 
 ---
 
-**Week ending 9/17 total = **
+**Week ending 9/17 total = **8.0 hours
 

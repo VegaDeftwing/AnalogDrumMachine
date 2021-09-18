@@ -66,4 +66,3 @@ Effect modules need to output a duplicate signal if only acting as mono, to keep
 [T Network?](https://www.perfectcircuit.com/addac-103-black.html)
 
 [Video explaining how the Digitakt sampling drum machine works](https://www.youtube.com/watch?v=MXexVHNO0ms)
-
