@@ -40,7 +40,9 @@ I actually already have a BDN9, albeit a 1st revision, that I have built myself.
 
 ## Friday, Oct 8th-- W:8.00 T:55.0
 
-**1.9hr** -- [TODO]
+**0.5hr** -- Group meeting in lab
+
+**1.4hr** -- Working in lab with Kaleb, Ried, and Cole. Mostly working on getting Kaleb's snare working, unsucessfully.
 
 ---
 
