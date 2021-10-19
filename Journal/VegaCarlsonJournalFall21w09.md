@@ -1,22 +1,22 @@
-# Vega Carlson - Group 165 - Fall '21, Week 8
+# Vega Carlson - Group 165 - Fall '21, Week 9
 
-## Saturday, Oct 9th -- W:0.00 T:55.00
+## Saturday, Oct 16th -- W:0.00 T:64.1
 
 **0.0 hr** -- No Progress today
 
-## Sunday, Oct 10th -- W:0.00 T:55.00
+## Sunday, Oct 17th -- W:0.00 T:64.1
 
 **0.0hrs** -- No Progress today
 
-## Monday, Oct 11th -- W:1.0 T:56.00
+## Monday, Oct 18th -- W:1.0 T:64.1
 
-**1.0hr** -- In reality I spent about 6 hours sorting and organizing my components. I'm counting it as an hour here though as a part of why I finally did it was because I needed to find some parts for the project. The IC sorting was by far the biggest task here, but I did find multiple parts that may come in handy, so it was worth it. Also, apparently I have 50 different OpAmps?
+**0.0hrs** -- No Progres Today
 
-![image-20211012032444419](../../../../../../../home/vega/.config/Typora/typora-user-images/image-20211012032444419.png)
+## Tuesday, Oct 19th -- W:1.7 T:57.7
 
-## Tuesday, Oct 12th -- W:1.7 T:57.7
+**0.7hrs** -- Tried sending events from Python to PureData, started work on datastructures in the code
 
-**0.7hrs** -- Ordered stuff from PiMoroni, struggled to find option for the Digipots. The MCP4642 in particular looks like our best option, but it's only in 10MSOP, which means we'll need something so that we can have our chips with DIP, but all of the adapters are 3x the cost of the chip. Planning to ask for help tomorrow.
+4:05
 
 ## Wednesday, Oct 13th -- W:4.5 T:60.5
 
