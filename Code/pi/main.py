@@ -12,9 +12,97 @@ import pretty_errors
 pretty.install()
 import sys
 
-class MicroStep:
+def clamp(n, minn, maxn):
+    return max(min(maxn, n), minn)
+
+def midiclamp(n):
+    return clamp(n, 0, 127)
+class Drum:
+    def __init__(self,type):
+        self.offsets = [0,0,0,0,0,0] #7-bit offsets. These are the per-step locks
+        self.analog = type
+
+class AnalogDrum(Drum):
     def __init__(self):
+        self.present = False
+        super().__init__(True)
+    pass
+
+class BassDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+
+class TomDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+class SnareDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+
+class HiHatDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+class FMDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+class DroneDrumModule(AnalogDrum):
+    def __init__(self):
+        pass
+    pass
+
+class KSDrumModule(AnalogDrum): #Karplus Strong
+    def __init__(self):
+        pass
+    pass
+
+class DigitalDrum(Drum):
+    def __init__(self):
+        self.sample = [0,0] #[%5,%15] #TODO update product spec, moving pattern lock state to give as many sample banks as sample slots
+        self.volume = 127
+        self.pitch = 63
+        self.pan = 63
+        self.srr = 63 #sample rate reduction
+        self.e1 = 0 #effect 1 depth
+        self.e2 = 0 # effect 2 depth
+        super().__init__(False)
+    def setsamplebank():
+        #%35
+        pass
+    def setsample():
+        #%15
+        pass
+    def sete1():
+        pass
+    def sete2():
+        pass
+
+class MicroStep:
+    def __init__(self,drum):
         self.microstep = False
+        self.drum = drum
+        self.offsets = [0,0,0,0,0,0]
+        if type(drum) is DigitalDrum:
+            self.sample = [0,0]
+        if type(drum) is AnalogDrum:
+            if type(drum) is BassDrumModule:
+                pass
+            elif type(drum) is TomDrumModule:
+                self.model = 0 # 0=low, 1=mid 2=hi - uses same LEDs as sample selection from digital drum
+            elif type(drum) is SnareDrumModule:
+                pass
+            elif type(drum) is HiHatDrumModule:
+                pass
+            elif type(drum) is FMDrumModule:
+                pass
+            elif type(drum) is DroneDrumModule:
+                pass
+            elif type(drum) is KSDrumModule:
+                pass
     
     def setmicrostep(self,state):
         self.microstep = state
@@ -25,13 +113,18 @@ class MicroStep:
     def getmicrostep(self):
         return self.microstep
 
+    #edge cases
+    #TODO tom drum has an analog mux that needs set per step
+    #TODO 
+
         
 class Step:
-    def __init__(self):
+    def __init__(self,drum):
         self.step = []
         self.active = False
+        self.drum = drum
         for i in range(4):
-            self.step.append(MicroStep())
+            self.step.append(MicroStep(self.drum))
     
     def flipmicrostep(self, pos):
         self.step[pos].flipmicrostep()
@@ -54,67 +147,6 @@ class Step:
 
     def getactive(self):
         return self.active
-
-
-class BassDrumModule:
-    def __init__(self):
-        pass
-    pass
-
-class TomDrumModule:
-    def __init__(self):
-        pass
-    pass
-class SnareDrumModule:
-    def __init__(self):
-        pass
-    pass
-
-class HiHatDrumModule:
-    def __init__(self):
-        pass
-    pass
-class FMDrumModule:
-    def __init__(self):
-        pass
-    pass
-class DroneDrumModule:
-    def __init__(self):
-        pass
-    pass
-
-class KSDrumModule: #Karplus Strong
-    def __init__(self):
-        pass
-    pass
-
-
-class AnalogDrum:
-    def __init__(self):
-        self.present = False
-    pass
-
-class DigitalDrum:
-    def __init__(self) -> None:
-        self.sample = [0,0] #[%5,%15] #TODO update product spec, moving pattern lock state to give as many sample banks as sample slots
-        self.volume = 127
-        self.pitch = 63
-        self.pan = 63
-        self.srr = 63 #sample rate reduction
-        self.e1 = 0 #effect 1 depth
-        self.e2 = 0 # effect 2 depth
-    def setsamplebank():
-        #%35
-        pass
-    def setsample():
-        #%15
-        pass
-    def sete1():
-        pass
-    def sete2():
-        pass
-
-
 class Track:
     def __init__(self, clock, active, number, type):
         self.number = number
@@ -129,7 +161,7 @@ class Track:
             sys.exit('Provided drum type needs to be either "analog" or "digital"')
 
         for i in range(16): #16 steps per track
-            self.steps.append(Step())
+            self.steps.append(Step(self.drum))
 
 
     def getmicrossteps(self, pos):
@@ -150,8 +182,9 @@ class Track:
             print('step {0:2d} - active = {1} : {2}' .format(i, self.steps[i].getactive(), self.getmicrossteps(i)))
 
 class Pattern:
-    def __init__(self):
+    def __init__(self,id):
         self.tracks = []
+        self.id = id
         for i in range(0,5):
             #tracks default to clock=1 (base) active=True
             self.tracks.append(Track(1,True,i,"analog"))
@@ -160,12 +193,25 @@ class Pattern:
 
 class Song:
     def __init__(self):
-        self.patterns = []
-        for i in range(16):
-            self.patterns.append(Pattern())
+        self.patterns = [[],[],[],[]]
+        for i in range(4):
+            for j in range(4):
+                self.patterns[i].append(Pattern(4*i+j))
 
 
 S1 = Song()
+# for each pattern
+# for i in range(4):
+#     for j in range(4):
+#         # for each trock
+#         for k in range(10):
+#             # for each step
+#             for l in range(16):
+#                 # for each microstep
+#                 for m in range(4):
+#                     print(S1.patterns[i][j].tracks[k].steps[l].step[m].getmicrostep())
+
+
 # TODO this is still a tad illogical, as it ties the analog modules id, sample, etc to each pattern, even though it really should be tied to a song
 # Also, once that id is tied to the song, that probably makes it necessary to display a scrolling message on the display saying what module needs to be
 # in what slot for a saved song, probably with the option to override that and lose data. That could be messy.
