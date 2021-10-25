@@ -147,6 +147,7 @@ class Step:
 
     def getactive(self):
         return self.active
+        
 class Track:
     def __init__(self, clock, active, number, type):
         self.number = number
