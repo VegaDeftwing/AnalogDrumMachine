@@ -18,6 +18,9 @@ import pretty_errors
 pretty.install()
 import sys
 
+uh = UnicornHATMini()
+uh.set_brightness(0.5)
+
 def clamp(n, minn, maxn):
     return max(min(maxn, n), minn)
 
@@ -213,6 +216,121 @@ class Song:
         for i in range(4):
             for j in range(4):
                 self.patterns[i].append(Pattern(4*i+j))
+                self.patternseq = []
+        self.pattern = []
+        self.patternseqlen = 7 #keep in mind this is 0 indexed!
+        self.currentpattern = 0
+        self.currentpatternseqstep = 0
+        for i in range(8):
+            # valid are "stay" "left" "right" "up" "down"
+            self.patternseq.append("stay")
+    
+    def setpatternseqstep(self, step, dir): #step in the pattern seq, not a normal step
+        #TODO add check for if step is less than len
+        self.patternseq[step] = dir
+
+    def setpatternseqlen(self, len):
+        self.patternseqlen = len
+
+    def incpattern(self):
+        if self.patternseq[self.currentpatternseqstep] == "stay":
+            self.currentpattern = self.currentpattern #literally don't do anything
+        elif self.patternseq[self.currentpatternseqstep] == "up":
+            self.currentpattern = (self.currentpattern - 4)%16 # mod 16 needed in case we need to wrap around
+        elif self.patternseq[self.currentpatternseqstep] == "down":
+            self.currentpattern = (self.currentpattern + 4)%16
+        elif self.patternseq[self.currentpatternseqstep] == "left":
+            if self.currentpattern in {0,4,8,12}:
+                self.currentpattern = (self.currentpattern + 3)
+            else:
+                self.currentpattern = (self.currentpattern - 1)
+        elif self.patternseq[self.currentpatternseqstep] == "right":
+            if self.currentpattern in {3,7,11,15}:
+                self.currentpattern = (self.currentpattern - 3)
+            else:
+                self.currentpattern = (self.currentpattern + 1)
+
+        if self.currentpatternseqstep < self.patternseqlen:
+            self.currentpatternseqstep = self.currentpatternseqstep + 1 #increment
+        else:
+            self.currentpatternseqstep = 0
+        self.showpatterngrid()
+        self.showpatternseq()
+
+    def showpatternseq(self):
+        #TODO make current step brighter
+        for i in range(8):
+            x = i%4
+            if i >= 4:
+                y = 6
+            else:
+                y = 5
+
+            if i > self.patternseqlen:
+                r = 0
+                g = 0
+                b = 0
+            elif self.patternseq[i] == "up":
+                r = 255
+                g = 0
+                b = 0
+            elif self.patternseq[i] == "down":
+                r = 0
+                g = 0
+                b = 255
+            elif self.patternseq[i] == "right":
+                r = 0
+                g = 255
+                b = 0
+            elif self.patternseq[i] == "left":
+                r = 255
+                g = 0
+                b = 255
+            elif self.patternseq[i] == "stay":
+                r = 255
+                g = 255
+                b = 255
+
+            uh.set_pixel(x, y, r, g, b)
+            uh.show()
+
+    def showpatterngrid(self):
+        for i in range(4):
+            for j in range(4):
+                x = i
+                y = j
+                xcurr = self.currentpattern % 4
+                ycurr = self.currentpattern // 4
+                if x == xcurr and y == ycurr: # stay
+                    r = 255
+                    g = 255
+                    b = 255
+                elif x==xcurr and y == (ycurr + 1)%4: #down
+                    r = 0
+                    g = 0
+                    b = 255
+                elif x==xcurr and y == (ycurr - 1)%4: #up
+                    r = 255
+                    g = 0
+                    b = 0
+                elif x==(xcurr - 1)%4 and y == ycurr: #left
+                    r = 255
+                    g = 0
+                    b = 255
+                elif x==(xcurr + 1)%4 and y == ycurr: #right
+                    r = 0
+                    g = 255
+                    b = 0
+                else:
+                    r = 5
+                    g = 5
+                    b = 5
+
+                uh.set_pixel(x, y, r, g, b)
+                uh.show()
+
+
+
 
 class Jukebox:
     def __init__(self):
@@ -220,7 +338,7 @@ class Jukebox:
         for i in range(16):
             self.songs.append(Song())
             # Attempt to load in all 16 saved songs from pickles
-            self.songs[i] = filecheck("songs/s{}.p".format(i))
+            #self.songs[i] = filecheck("songs/s{}.p".format(i))
 
     def savesong(self,songnum):
         pickle.dump( self.songs[songnum], open( "songs/s{}.p".format(songnum), "wb" ) )
@@ -228,6 +346,9 @@ class Jukebox:
     def saveallsongs(self):
         for i in range(16):
             self.savesong(i)
+
+    def getsong(self, songnum):
+        return self.songs[songnum]
         
 
 def showStartup(uh):
@@ -305,8 +426,25 @@ J1 = Jukebox()
 # Because of this, this jukebox object is actually fairly large - 163840 microsteps (bools) in total.
 
 J1.saveallsongs()
-uh = UnicornHATMini()
-# showStartup(uh)
+#showStartup(uh)
+
+S1 = J1.getsong(1)
+
+S1.setpatternseqstep(0, "up")
+S1.setpatternseqstep(1, "up")
+S1.setpatternseqstep(2, "down")
+S1.setpatternseqstep(3, "left")
+
+S1.setpatternseqstep(4, "right")
+S1.setpatternseqstep(5, "right")
+S1.setpatternseqstep(6, "right")
+S1.setpatternseqstep(7, "stay")
+# S1.showpatternseq()
+# S1.showpatterngrid()
+
+while True:
+    S1.incpattern()
+    time.sleep(1)
 
 # TODO this is still a tad illogical, as it ties the analog modules id, sample, etc to each pattern, even though it really should be tied to a song
 # Also, once that id is tied to the song, that probably makes it necessary to display a scrolling message on the display saying what module needs to be
