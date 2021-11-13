@@ -12,7 +12,7 @@
 
 **1.0hr** -- In reality I spent about 6 hours sorting and organizing my components. I'm counting it as an hour here though as a part of why I finally did it was because I needed to find some parts for the project. The IC sorting was by far the biggest task here, but I did find multiple parts that may come in handy, so it was worth it. Also, apparently I have 50 different OpAmps?
 
-![image-20211012032444419](../../../../../../../home/vega/.config/Typora/typora-user-images/image-20211012032444419.png)
+![image-20211012032444419](../Images/image-20211012032444419.png)
 
 ## Tuesday, Oct 12th -- W:1.7 T:57.7
 
