@@ -4,10 +4,14 @@ from gpiozero import Button #Unicorn Hat Buttons
 from unicornhatmini import UnicornHATMini #Unicorn Hat LEDs
 from colorsys import hsv_to_rgb
 from PIL import Image, ImageDraw, ImageFont
+import keyboard
+from collections import defaultdict
 # The unicorn hat library has a built in font - see https://github.com/pimoroni/unicornhatmini-python/blob/master/examples/text.py
 # This shouldn't be necessary since the microdot phat does text much better, but it's nice to have the option
 
 import sched, time # needed for event scheduling - see http://pymotw.com/2/sched/ - This should really only be used for sending the MIDI data
+#import threading
+import random
 from os.path import exists
 import pickle
 
@@ -16,6 +20,8 @@ import pickle
 from rich import pretty, print
 import pretty_errors
 pretty.install()
+#from icecream import ic
+
 import sys
 
 uh = UnicornHATMini()
@@ -37,6 +43,7 @@ def filecheck(fn):
 
 class Drum:
     def __init__(self,type):
+        self.name = "noname"
         self.offsets = [0,0,0,0,0,0] #7-bit offsets. These are the per-step locks
         self.analog = type
 
@@ -73,10 +80,10 @@ class DroneDrumModule(AnalogDrum):
         pass
     pass
 
-class KSDrumModule(AnalogDrum): #Karplus Strong
-    def __init__(self):
-        pass
-    pass
+# class KSDrumModule(AnalogDrum): #Karplus Strong
+#     def __init__(self):
+#         pass
+#     pass
 
 class DigitalDrum(Drum):
     def __init__(self):
@@ -101,7 +108,8 @@ class DigitalDrum(Drum):
 
 class MicroStep:
     def __init__(self,drum):
-        self.microstep = False
+        #self.microstep = False
+        self.microstep = not bool(random.getrandbits(2))
         self.drum = drum
         self.offsets = [0,0,0,0,0,0]
         if type(drum) is DigitalDrum:
@@ -119,8 +127,8 @@ class MicroStep:
                 pass
             elif type(drum) is DroneDrumModule:
                 pass
-            elif type(drum) is KSDrumModule:
-                pass
+            # elif type(drum) is KSDrumModule:
+            #     pass
     
     def setmicrostep(self,state):
         self.microstep = state
@@ -163,6 +171,9 @@ class Step:
     def getmicrosteps(self):
         return [self.step[0].getmicrostep(),self.step[1].getmicrostep(),self.step[2].getmicrostep(),self.step[3].getmicrostep()]
 
+    def getmicrostep(self,pos):
+        return self.step[pos].getmicrostep()
+    
     def getactive(self):
         return self.active
         
@@ -172,6 +183,7 @@ class Track:
         self.steps = []
         self.clock = clock
         self.active = active
+        self.currentstep = 0
         if type == "analog":
             self.drum = AnalogDrum()
         elif type == "digital":
@@ -200,15 +212,68 @@ class Track:
         for i in range(16):
             print('step {0:2d} - active = {1} : {2}' .format(i, self.steps[i].getactive(), self.getmicrossteps(i)))
 
+    def debugdisplayallsteps(self):
+        for i in range(16):
+            microsteps = self.getmicrossteps(i)
+            for j in range(4):
+                x = ((4*i+j)%16)
+                y = int((4*i+j)//16)
+                if(microsteps[j]):
+                    if(j==0):
+                        uh.set_pixel(x, y, 0, 255, 0)
+                    else:
+                        uh.set_pixel(x, y, 255, 0, 0)
+                else:
+                    uh.set_pixel(x, y, 0, 0, 0)
+                
+                if(self.currentstep == (4*i)+j):
+                    uh.set_pixel(x, y, 255, 255, 255)
+            uh.show()
+
+    def advancestep(self):
+        if(self.currentstep < 63):
+            self.currentstep = self.currentstep + 1
+        else:
+            self.currentstep = 0
+        #enabling this print for debug WILL eat a core of the CPU
+        #print("current step = {}::{} = {}".format(self.currentstep//4,self.currentstep%4,self.steps[self.currentstep//4].getmicrostep(self.currentstep%4)))
+        return self.steps[self.currentstep//4].getmicrostep(self.currentstep%4)
+
+    def getnumber(self):
+        return self.number
+
+    def getname(self):
+        return self.drum.name
+
 class Pattern:
     def __init__(self,id):
         self.tracks = []
         self.id = id
+        self.activetrack = 0
         for i in range(0,5):
             #tracks default to clock=1 (base) active=True
             self.tracks.append(Track(1,True,i,"analog"))
         for i in range(5,10):
             self.tracks.append(Track(1,True,i,"digital"))
+    
+    def getactivetrack(self):
+        return self.tracks[self.activetrack]
+
+    def getactivetracknum(self):
+        return self.tracks[self.activetrack].getnumber()
+
+    def getactivetrackname(self):
+        return self.tracks[self.activetrack].getname()
+
+    def setactivetrack(self, tracknum):
+        self.activetrack = tracknum
+
+    def advancealltrackssteps(self):
+        for i in range(0,10):
+            self.tracks[i].advancestep()
+
+    def debugdisplay(self):
+        self.getactivetrack().debugdisplayallsteps()
 
 class Song:
     def __init__(self):
@@ -221,9 +286,27 @@ class Song:
         self.patternseqlen = 7 #keep in mind this is 0 indexed!
         self.currentpattern = 0
         self.currentpatternseqstep = 0
+        self.patternlocked = False
         for i in range(8):
             # valid are "stay" "left" "right" "up" "down"
             self.patternseq.append("stay")
+    
+    def getcurrentpattern(self):
+        #return self.pattern[self.currentpattern]
+        patterndict = {
+            0:[0,0],1:[0,1],2:[0,2],3:[0,3],
+            4:[1,0],5:[1,1],6:[1,2],7:[1,3],
+            8:[2,0],9:[2,1],10:[2,2],11:[2,3],
+            12:[3,0],13:[3,1],14:[3,2],15:[3,3],
+        }
+        pos = patterndict[self.currentpattern]
+        prow = self.patterns[pos[0]]
+        pattern = prow[pos[1]]
+        #print("pattern {} at addr: {}".format(self.currentpattern, pattern))
+        return pattern
+
+    def advancecurrentpatternsteps(self):
+        self.getcurrentpattern().advancealltrackssteps()
     
     def setpatternseqstep(self, step, dir): #step in the pattern seq, not a normal step
         #TODO add check for if step is less than len
@@ -232,30 +315,39 @@ class Song:
     def setpatternseqlen(self, len):
         self.patternseqlen = len
 
-    def incpattern(self):
-        if self.patternseq[self.currentpatternseqstep] == "stay":
-            self.currentpattern = self.currentpattern #literally don't do anything
-        elif self.patternseq[self.currentpatternseqstep] == "up":
-            self.currentpattern = (self.currentpattern - 4)%16 # mod 16 needed in case we need to wrap around
-        elif self.patternseq[self.currentpatternseqstep] == "down":
-            self.currentpattern = (self.currentpattern + 4)%16
-        elif self.patternseq[self.currentpatternseqstep] == "left":
-            if self.currentpattern in {0,4,8,12}:
-                self.currentpattern = (self.currentpattern + 3)
-            else:
-                self.currentpattern = (self.currentpattern - 1)
-        elif self.patternseq[self.currentpatternseqstep] == "right":
-            if self.currentpattern in {3,7,11,15}:
-                self.currentpattern = (self.currentpattern - 3)
-            else:
-                self.currentpattern = (self.currentpattern + 1)
-
-        if self.currentpatternseqstep < self.patternseqlen:
-            self.currentpatternseqstep = self.currentpatternseqstep + 1 #increment
+    def flippatternlock(self):
+        self.patternlocked = not self.patternlocked
+        if(self.patternlocked == True):
+            print("locked to pattern {}".format(self.currentpattern))
         else:
-            self.currentpatternseqstep = 0
-        self.showpatterngrid()
-        self.showpatternseq()
+            print("un-locked pattern {}".format(self.currentpattern))
+
+    def incpattern(self):
+        if self.patternlocked == False:
+            if self.patternseq[self.currentpatternseqstep] == "stay":
+                self.currentpattern = self.currentpattern #literally don't do anything
+            elif self.patternseq[self.currentpatternseqstep] == "up":
+                self.currentpattern = (self.currentpattern - 4)%16 # mod 16 needed in case we need to wrap around
+            elif self.patternseq[self.currentpatternseqstep] == "down":
+                self.currentpattern = (self.currentpattern + 4)%16
+            elif self.patternseq[self.currentpatternseqstep] == "left":
+                if self.currentpattern in {0,4,8,12}:
+                    self.currentpattern = (self.currentpattern + 3)
+                else:
+                    self.currentpattern = (self.currentpattern - 1)
+            elif self.patternseq[self.currentpatternseqstep] == "right":
+                if self.currentpattern in {3,7,11,15}:
+                    self.currentpattern = (self.currentpattern - 3)
+                else:
+                    self.currentpattern = (self.currentpattern + 1)
+
+            if self.currentpatternseqstep < self.patternseqlen:
+                self.currentpatternseqstep = self.currentpatternseqstep + 1 #increment
+            else:
+                self.currentpatternseqstep = 0
+
+        # self.showpatterngrid()
+        # self.showpatternseq()
 
     def showpatternseq(self):
         #TODO make current step brighter
@@ -271,25 +363,30 @@ class Song:
                 g = 0
                 b = 0
             elif self.patternseq[i] == "up":
-                r = 255
+                r = 31
                 g = 0
                 b = 0
             elif self.patternseq[i] == "down":
                 r = 0
                 g = 0
-                b = 255
+                b = 31
             elif self.patternseq[i] == "right":
                 r = 0
-                g = 255
+                g = 31
                 b = 0
             elif self.patternseq[i] == "left":
-                r = 255
+                r = 31
                 g = 0
-                b = 255
+                b = 31
             elif self.patternseq[i] == "stay":
-                r = 255
-                g = 255
-                b = 255
+                r = 31
+                g = 31
+                b = 31
+
+            if i == self.currentpatternseqstep:
+                r = int(r * 8)
+                g = int(g * 8)
+                b = int(b * 8)
 
             uh.set_pixel(x, y, r, g, b)
             uh.show()
@@ -302,25 +399,38 @@ class Song:
                 xcurr = self.currentpattern % 4
                 ycurr = self.currentpattern // 4
                 if x == xcurr and y == ycurr: # stay
-                    r = 255
-                    g = 255
-                    b = 255
+                    r = 31
+                    g = 31
+                    b = 31
+                    if self.patternseq[self.currentpatternseqstep] == "stay":
+                        r = 255
+                        g = 255
+                        b = 255
                 elif x==xcurr and y == (ycurr + 1)%4: #down
                     r = 0
                     g = 0
-                    b = 255
+                    b = 31
+                    if self.patternseq[self.currentpatternseqstep] == "down":
+                        b = 255
                 elif x==xcurr and y == (ycurr - 1)%4: #up
-                    r = 255
+                    r = 31
                     g = 0
                     b = 0
+                    if self.patternseq[self.currentpatternseqstep] == "up":
+                        r = 255
                 elif x==(xcurr - 1)%4 and y == ycurr: #left
-                    r = 255
+                    r = 31
                     g = 0
-                    b = 255
+                    b = 31
+                    if self.patternseq[self.currentpatternseqstep] == "left":
+                        b = 255
+                        r = 255
                 elif x==(xcurr + 1)%4 and y == ycurr: #right
                     r = 0
-                    g = 255
+                    g = 31
                     b = 0
+                    if self.patternseq[self.currentpatternseqstep] == "right":
+                        g = 255
                 else:
                     r = 5
                     g = 5
@@ -328,18 +438,39 @@ class Song:
 
                 uh.set_pixel(x, y, r, g, b)
                 uh.show()
+    
+    def showtracknum(self):
+        write_string('TRK {}'.format(self.getcurrentpattern().getactivetracknum()),kerning=False)
+        show()
+
+    def showtrackname(self):
+        write_string(self.getcurrentpattern().getactivetrackname(),kerning=False)
+        show()
+
+    def debugdisplay(self):
+        self.getcurrentpattern().debugdisplay()
+    
+    def updatedisplay(self):
+        #self.showpatterngrid()
+        #self.showpatternseq()
+        self.showtrackname()
+        self.debugdisplay()
 
 
 
 
 class Jukebox:
     def __init__(self):
+        self.activesong = 1
         self.songs = []
         for i in range(16):
             self.songs.append(Song())
             # Attempt to load in all 16 saved songs from pickles
             #self.songs[i] = filecheck("songs/s{}.p".format(i))
 
+    def getactivesong(self):
+        return self.songs[self.activesong]
+   
     def savesong(self,songnum):
         pickle.dump( self.songs[songnum], open( "songs/s{}.p".format(songnum), "wb" ) )
     
@@ -349,6 +480,30 @@ class Jukebox:
 
     def getsong(self, songnum):
         return self.songs[songnum]
+
+    def changesong(self, songnum):
+        self.activesong = songnum
+
+    def incpattern(self):
+        self.songs[self.activesong].incpattern()
+
+    def lock(self):
+        self.songs[self.activesong].flippatternlock()
+
+    def getactivepattern(self):
+        return self.songs[self.activesong].getcurrentpattern()
+
+    def getactivetrack(self):
+        return self.getactivepattern().getactivetrack()
+
+    def flipmicrostep(self,pos,micropos):
+        self.getactivetrack().flipmicrostep(pos,micropos)
+
+    def advancestep(self):
+        self.getactivesong().advancecurrentpatternsteps()
+
+    def updatedisplay(self):
+        self.songs[self.activesong].updatedisplay()
         
 
 def showStartup(uh):
@@ -442,9 +597,77 @@ S1.setpatternseqstep(7, "stay")
 # S1.showpatternseq()
 # S1.showpatterngrid()
 
+### Workaround for down key events retriggering adapted from https://github.com/boppreh/keyboard/issues/158
+
+keystate = defaultdict(lambda: 'up')
+
+def pressed(name, event):
+    return keystate[name] == 'up' and name == event.name and event.event_type == 'down'
+def released(name, event):
+    return keystate[name] == 'down' and name == event.name and event.event_type == 'up'
+def held(name):
+    return keystate[name] == 'held'
+
+def handlemicrostep(name):  #this is super ugly, but I can't think of a better way to do it.
+
+    if(name == "f9"):
+        microsteppos = 0
+    elif(name == "f10"):
+        microsteppos = 1
+    elif(name == "f11"):
+        microsteppos = 2
+    elif(name == "f12"):
+        microsteppos = 3
+    else:
+        return
+
+    mapping = {
+        "1":0,"2":1,"3":2,"4":3,"5":4,"6":5,"7":6,"8":7,"f1":8,"f2":9,"f3":10,"f4":11,"f5":12,"f6":13,"f7":14,"f8":15
+    }
+
+    for key in mapping:
+        if(keystate[key] == 'held'):
+            J1.flipmicrostep(mapping[key],microsteppos)
+            #print("flipped step {}:{}::{}:{} ".format(J1.getactivepattern,J1.getactivetrack(),mapping[key],microsteppos))
+
+def handler(event: keyboard.KeyboardEvent):
+    if (keystate[event.name] == 'down' and event.event_type == 'down'):
+        keystate[event.name] = 'held'
+        return
+
+    if (keystate[event.name] == 'held' and event.event_type == 'up'):
+        keystate[event.name] = event.event_type
+        return
+
+    if pressed(event.name, event):
+        print('pressed', event.name)
+        if(event.name == "l"):
+            J1.lock()
+        handlemicrostep(event.name)
+
+
+    if released(event.name, event):
+        #This means released without being held, a quick 'tap'
+	    print('released', event.name)
+
+    if held(event.name):
+        #print('held', event.name)
+        return
+
+    keystate[event.name] = event.event_type
+
+hook = keyboard.hook(handler)
+J1.updatedisplay()
+
 while True:
-    S1.incpattern()
-    time.sleep(1)
+    # t = threading.Timer(1,S1.incpattern())
+    for i in range(64):
+        J1.advancestep()
+        time.sleep(.0020833) # roughly 120bpm
+        J1.updatedisplay()
+    J1.incpattern()
+    #print("pattern at addr: {}".format(J1.getactivepattern()))
+
 
 # TODO this is still a tad illogical, as it ties the analog modules id, sample, etc to each pattern, even though it really should be tied to a song
 # Also, once that id is tied to the song, that probably makes it necessary to display a scrolling message on the display saying what module needs to be
