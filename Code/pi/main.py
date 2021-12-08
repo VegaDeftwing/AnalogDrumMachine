@@ -10,7 +10,7 @@ from collections import defaultdict
 # This shouldn't be necessary since the microdot phat does text much better, but it's nice to have the option
 
 import sched, time # needed for event scheduling - see http://pymotw.com/2/sched/ - This should really only be used for sending the MIDI data
-#import threading
+import threading
 import random
 from os.path import exists
 import pickle
@@ -23,6 +23,11 @@ pretty.install()
 #from icecream import ic
 
 import sys
+
+import mido # midi messages - https://mido.readthedocs.io/en/latest/
+# Note, PureData must be running FIRST as port = mido.open_output("Pure Data Midi-In 1") will not work otherwise
+# Plus, some start up delay will be necessary to make sure PD has had enough time to initizalize.
+import psutil # check if puredata is running - https://github.com/giampaolo/psutil#further-process-apis
 
 uh = UnicornHATMini()
 uh.set_brightness(0.5)
@@ -42,15 +47,14 @@ def filecheck(fn):
       return(0)
 
 class Drum:
-    def __init__(self,type):
-        self.name = "noname"
+    def __init__(self,name):
+        self.name = name
         self.offsets = [0,0,0,0,0,0] #7-bit offsets. These are the per-step locks
-        self.analog = type
 
 class AnalogDrum(Drum):
-    def __init__(self):
-        self.present = False
-        super().__init__(True)
+    def __init__(self,name):
+        
+        super().__init__(name)
     pass
 
 class BassDrumModule(AnalogDrum):
@@ -86,15 +90,15 @@ class DroneDrumModule(AnalogDrum):
 #     pass
 
 class DigitalDrum(Drum):
-    def __init__(self):
+    def __init__(self,name):
         self.sample = [0,0] #[%5,%15] #TODO update product spec, moving pattern lock state to give as many sample banks as sample slots
-        self.volume = 127
-        self.pitch = 63
-        self.pan = 63
-        self.srr = 63 #sample rate reduction
-        self.e1 = 0 #effect 1 depth
+        self.volume = 127 #Midi Vel - drives above a certain threshold
+        self.pitch = 63 #Midi Note
+        self.fc = 63 #Filter Cutt off - CC 21
+        self.srr = 63 #Sample Rate Reduction - CC 22
+        self.verb = 0 #Reverb Mix - CC 23
         self.e2 = 0 # effect 2 depth
-        super().__init__(False)
+        super().__init__(name)
     def setsamplebank():
         #%35
         pass
@@ -108,8 +112,8 @@ class DigitalDrum(Drum):
 
 class MicroStep:
     def __init__(self,drum):
-        #self.microstep = False
-        self.microstep = not bool(random.getrandbits(2))
+        self.microstep = False
+        #self.microstep = not bool(random.getrandbits(2))
         self.drum = drum
         self.offsets = [0,0,0,0,0,0]
         if type(drum) is DigitalDrum:
@@ -185,9 +189,9 @@ class Track:
         self.active = active
         self.currentstep = 0
         if type == "analog":
-            self.drum = AnalogDrum()
+            self.drum = AnalogDrum("ADRM{}".format(number))
         elif type == "digital":
-            self.drum = DigitalDrum()
+            self.drum = DigitalDrum("DDRM{}".format(number))
         else:
             sys.exit('Provided drum type needs to be either "analog" or "digital"')
 
@@ -230,7 +234,34 @@ class Track:
                     uh.set_pixel(x, y, 255, 255, 255)
             uh.show()
 
+    def killstep(self,note):
+        time.sleep(.001)
+        msg = mido.Message('note_off', note=note)
+        port.send(msg)
+
+
+    def playstep(self):
+        # the responsability for playing a drum should probably be attached to a particular drum type in 
+        # the drum's class itself, but ╮(─▽─)╭
+        #if isinstance(type(self.drum), DigitalDrum):
+            #msg = mido.Message('note_on', note=self.drum.pitch)
+        if self.active == True:
+        #if self.number == 5:
+            msg = mido.Message('note_on', note=60)
+            msg.copy(channel=1) #self.number) #the track number determines the MIDI channel
+            port.send(msg)
+            stop = threading.Thread(target=self.killstep, args=(60,))
+            stop.start() #yes, I know how dumb this line sounds. It means that the thread that will kill
+            # the note after .001 seconds should be started.
+            # time.sleep(.001)
+            # msg = mido.Message('note_off', note=60)
+            # port.send(msg)
+            
+
+
+
     def advancestep(self):
+        self.playstep()
         if(self.currentstep < 63):
             self.currentstep = self.currentstep + 1
         else:
@@ -250,11 +281,12 @@ class Pattern:
         self.tracks = []
         self.id = id
         self.activetrack = 0
-        for i in range(0,5):
+        self.tracks.append(Track(1,True,0,"analog"))
+        for i in range(1,5):
             #tracks default to clock=1 (base) active=True
-            self.tracks.append(Track(1,True,i,"analog"))
+            self.tracks.append(Track(1,False,i,"analog"))
         for i in range(5,10):
-            self.tracks.append(Track(1,True,i,"digital"))
+            self.tracks.append(Track(1,False,i,"digital"))
     
     def getactivetrack(self):
         return self.tracks[self.activetrack]
@@ -267,6 +299,11 @@ class Pattern:
 
     def setactivetrack(self, tracknum):
         self.activetrack = tracknum
+        for i in range(10):
+            if tracknum == i:
+                self.tracks[i].active = True
+            else:
+                self.tracks[i].active = False
 
     def advancealltrackssteps(self):
         for i in range(0,10):
@@ -496,6 +533,10 @@ class Jukebox:
     def getactivetrack(self):
         return self.getactivepattern().getactivetrack()
 
+    def setactivetrack(self,num):
+        self.getactivepattern().setactivetrack(num)
+        self.getactivepattern().setactivetrack(num)
+
     def flipmicrostep(self,pos,micropos):
         self.getactivetrack().flipmicrostep(pos,micropos)
 
@@ -594,6 +635,17 @@ S1.setpatternseqstep(4, "right")
 S1.setpatternseqstep(5, "right")
 S1.setpatternseqstep(6, "right")
 S1.setpatternseqstep(7, "stay")
+
+#set it to the first digital drum track
+# TODO, this might require a bigger change, as right now the
+# active track is tied to the pattern, meaning on pattern
+# change the track being edited will also change
+# which would be a terrible user experiance.
+J1.setactivetrack(5)
+# make a 4-on-the-floor to test with.
+for i in range(16):
+    J1.flipmicrostep(i,0)
+
 # S1.showpatternseq()
 # S1.showpatterngrid()
 
@@ -659,11 +711,30 @@ def handler(event: keyboard.KeyboardEvent):
 hook = keyboard.hook(handler)
 J1.updatedisplay()
 
+PDrunning = False
+
+while PDrunning == False:
+    #`purr-data -nogui -open X.pd`
+    for proc in psutil.process_iter(['name']):
+        if proc.info["name"] == "purr-data":
+            PDrunning = True
+            break
+    if PDrunning:
+        break
+    time.sleep(.5)
+    print("PD not yet running")
+
+if PDrunning:
+    print("PD is running, initalizing MIDI")
+    time.sleep(.25)
+    port = mido.open_output("Pure Data Midi-In 1")
+
 while True:
     # t = threading.Timer(1,S1.incpattern())
     for i in range(64):
         J1.advancestep()
-        time.sleep(.0020833) # roughly 120bpm
+        #time.sleep(.0020833) # roughly 120bpm
+        time.sleep(.5)
         J1.updatedisplay()
     J1.incpattern()
     #print("pattern at addr: {}".format(J1.getactivepattern()))

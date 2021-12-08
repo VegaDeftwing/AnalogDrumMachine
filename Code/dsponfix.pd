@@ -1,0 +1,29 @@
+#N canvas 1924 16 1912 1019 10;
+#X obj 610 400 loadbang;
+#X obj 610 430 delay 100;
+#X obj 430 420 dac~;
+#X msg 610 490 \; pd dsp 1 \;;
+#X obj 430 250 notein;
+#X obj 430 290 mtof;
+#X obj 430 330 phasor~;
+#X obj 430 370 *~;
+#X obj 582 295 lop~;
+#X obj 510 356 *~ 0.1;
+#X obj 480 420 lop~;
+#X obj 560 410 vsl 15 128 200 20000 1 1 empty empty empty 0 -9 0 10
+#fcfcfc #000000 #000000 3900 1;
+#X obj 600 130 vsl 15 128 0 8 0 1 empty empty empty 0 -9 0 10 #fcfcfc
+#000000 #000000 650 1;
+#X connect 0 0 1 0;
+#X connect 1 0 3 0;
+#X connect 4 0 5 0;
+#X connect 4 1 8 0;
+#X connect 4 2 8 0;
+#X connect 5 0 6 0;
+#X connect 6 0 7 0;
+#X connect 7 0 10 0;
+#X connect 8 0 9 0;
+#X connect 9 0 7 1;
+#X connect 10 0 2 0;
+#X connect 11 0 10 1;
+#X connect 12 0 8 1;
