@@ -1,6 +1,31 @@
+
+
+#   ██████╗ █████╗ ██████╗ ███████╗████████╗ ██████╗ ███╗   ██╗███████╗     ██████╗  ██╗ ██████╗ ███████╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝╚══██╔══╝██╔═══██╗████╗  ██║██╔════╝    ██╔════╝ ███║██╔════╝ ██╔════╝
+#  ██║     ███████║██████╔╝███████╗   ██║   ██║   ██║██╔██╗ ██║█████╗      ██║  ███╗╚██║███████╗ ███████╗
+#  ██║     ██╔══██║██╔═══╝ ╚════██║   ██║   ██║   ██║██║╚██╗██║██╔══╝      ██║   ██║ ██║██╔═══██╗╚════██║
+#  ╚██████╗██║  ██║██║     ███████║   ██║   ╚██████╔╝██║ ╚████║███████╗    ╚██████╔╝ ██║╚██████╔╝███████║
+#   ╚═════╝╚═╝  ╚═╝╚═╝     ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝     ╚═════╝  ╚═╝ ╚═════╝ ╚══════╝
+#                                                                                                        
+# Vega, Kaleb, Reid, & Cole  -  2021 & 2022
+#    _____ 
+#   |_   _|
+#     | |  
+#     |_|his code is meant to run on a Raspberry pi with both the Pimoroni Unicorn Hat Mini and Micodot Phats, hooked up on a hat-hacker interface
+#        Furthermore, this code is only part of a larger system, sending data out through MIDI to a Purr-Data script which plays back drum samples
+#        as well as sending data to a custom RP2040 (pi pico) based board to send per-step trigger and value information to multiple analog drum
+#        modules. That is to say that while, yes, this code has useful, reuseable bits in it, it's really meant to be used as part of a larger
+#        project and as such if you, random future individual that is reading this code, want to steal code from this, you **can** but be aware
+#        a large part of the reason for the complexity here is the surounding interface and project as a whole... so, here be dragons.
+#
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------
+# Imports
+#------------------------------------------------------------------------------------------------------------------------------------------------------
 from microdotphat import write_string, scroll, set_pixel, clear, show, WIDTH, HEIGHT # Microdot phat (text mostly)
 # See https://learn.pimoroni.com/article/getting-started-with-micro-dot-phat
-from gpiozero import Button #Unicorn Hat Buttons
+from gpiozero import Button
+from pyrsistent import b #Unicorn Hat Buttons
 from unicornhatmini import UnicornHATMini #Unicorn Hat LEDs
 from colorsys import hsv_to_rgb
 from PIL import Image, ImageDraw, ImageFont
@@ -9,8 +34,7 @@ from collections import defaultdict
 # The unicorn hat library has a built in font - see https://github.com/pimoroni/unicornhatmini-python/blob/master/examples/text.py
 # This shouldn't be necessary since the microdot phat does text much better, but it's nice to have the option
 
-import sched, time # needed for event scheduling - see http://pymotw.com/2/sched/ - This should really only be used for sending the MIDI data
-import threading
+import time # needed for event scheduling - see http://pymotw.com/2/sched/ - This should really only be used for sending the MIDI data
 import random
 from os.path import exists
 import pickle
@@ -29,8 +53,21 @@ import mido # midi messages - https://mido.readthedocs.io/en/latest/
 # Plus, some start up delay will be necessary to make sure PD has had enough time to initizalize.
 import psutil # check if puredata is running - https://github.com/giampaolo/psutil#further-process-apis
 
+from operator import mul #used for working with GRB tuple values
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------
+# (Most of the) Globals
+#------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 uh = UnicornHATMini()
 uh.set_brightness(0.5)
+
+bpm = 120 # This is the default value, it can be changed by the user later
+
+#------------------------------------------------------------------------------------------------------------------------------------------------------
+# Small helper FNs
+#------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def clamp(n, minn, maxn):
     return max(min(maxn, n), minn)
@@ -45,6 +82,14 @@ def filecheck(fn):
     except IOError:
       print("Error: File '{}' does not appear to exist.".format(fn))
       return(0)
+
+#  888888ba   888888ba  dP     dP 8888ba.88ba  .d88888b  
+#  88    `8b  88    `8b 88     88 88  `8b  `8b 88.    "' 
+#  88     88 a88aaaa8P' 88     88 88   88   88 `Y88888b. 
+#  88     88  88   `8b. 88     88 88   88   88       `8b 
+#  88    .8P  88     88 Y8.   .8P 88   88   88 d8'   .8P 
+#  8888888P   dP     dP `Y88888P' dP   dP   dP  Y88888P  
+#                                                                                                           
 
 class Drum:
     def __init__(self,name):
@@ -84,11 +129,6 @@ class DroneDrumModule(AnalogDrum):
         pass
     pass
 
-# class KSDrumModule(AnalogDrum): #Karplus Strong
-#     def __init__(self):
-#         pass
-#     pass
-
 class DigitalDrum(Drum):
     def __init__(self,name):
         self.sample = [0,0] #[%5,%15] #TODO update product spec, moving pattern lock state to give as many sample banks as sample slots
@@ -109,6 +149,15 @@ class DigitalDrum(Drum):
         pass
     def sete2():
         pass
+
+#     _____ _                 
+#    / ____| |                
+#   | (___ | |_ ___ _ __  ___ 
+#    \___ \| __/ _ \ '_ \/ __|
+#    ____) | ||  __/ |_) \__ \
+#   |_____/ \__\___| .__/|___/
+#                  | |        
+#                  |_|        
 
 class MicroStep:
     def __init__(self,drum):
@@ -180,6 +229,15 @@ class Step:
     
     def getactive(self):
         return self.active
+
+#    _______             _        
+#   |__   __|           | |       
+#      | |_ __ __ _  ___| | _____ 
+#      | | '__/ _` |/ __| |/ / __|
+#      | | | | (_| | (__|   <\__ \
+#      |_|_|  \__,_|\___|_|\_\___/
+#                                 
+#                                 
         
 class Track:
     def __init__(self, clock, active, number, type):
@@ -188,6 +246,7 @@ class Track:
         self.clock = clock
         self.active = active
         self.currentstep = 0
+        self.currentstepstate = False
         if type == "analog":
             self.drum = AnalogDrum("ADRM{}".format(number))
         elif type == "digital":
@@ -216,7 +275,7 @@ class Track:
         for i in range(16):
             print('step {0:2d} - active = {1} : {2}' .format(i, self.steps[i].getactive(), self.getmicrossteps(i)))
 
-    def debugdisplayallsteps(self):
+    def rgbstepdisplayallsteps(self):
         for i in range(16):
             microsteps = self.getmicrossteps(i)
             for j in range(4):
@@ -232,10 +291,10 @@ class Track:
                 
                 if(self.currentstep == (4*i)+j):
                     uh.set_pixel(x, y, 255, 255, 255)
-            uh.show()
+            #uh.show()
 
     def killstep(self,note):
-        time.sleep(.001)
+        time.sleep(.009)
         msg = mido.Message('note_off', note=note)
         port.send(msg)
 
@@ -244,18 +303,42 @@ class Track:
         # the responsability for playing a drum should probably be attached to a particular drum type in 
         # the drum's class itself, but ╮(─▽─)╭
         #if isinstance(type(self.drum), DigitalDrum):
-            #msg = mido.Message('note_on', note=self.drum.pitch)
-        if self.active == True:
-        #if self.number == 5:
-            msg = mido.Message('note_on', note=60)
-            msg.copy(channel=1) #self.number) #the track number determines the MIDI channel
+        #msg = mido.Message('note_on', note=self.drum.pitch)
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        note = 2
+
+        if self.currentstepstate == True and self.number >= 5 : #tracks 5,6,7,8,9 are digital
+            if self.number == 5:
+                msg = mido.Message('note_on', note=60, channel=0)
+                note = 60
+            elif self.number == 6:
+                msg = mido.Message('note_on', note=63, channel=1)
+                note = 63
+            elif self.number == 7:
+                msg = mido.Message('note_on', note=66, channel=2)
+                note = 66
+            elif self.number == 8:
+                msg = mido.Message('note_on', note=69, channel=3)
+                note = 69
+            elif self.number == 9:
+                msg = mido.Message('note_on', note=72, channel=4)
+                note = 72
+            #msg.copy(channel= self.number - 4) #the track number determines the MIDI channel, subtract 4 to make the midi channels 1,2,3,4,5
+            #print("playing note on MIDI Ch. {}".format(self.number -  5) )
+
+            #Having this on a thread isn't terribly ideal, but it's pretty heavily blocking, and this helps bring the project rate up
+            #mt = Process(target=port.send(msg))
+            #mt.start
             port.send(msg)
-            stop = threading.Thread(target=self.killstep, args=(60,))
-            stop.start() #yes, I know how dumb this line sounds. It means that the thread that will kill
-            # the note after .001 seconds should be started.
-            # time.sleep(.001)
-            # msg = mido.Message('note_off', note=60)
-            # port.send(msg)
+            ## This stoping thread isn't needed with the current implimentation.
+            #stop = threading.Thread(target=self.killstep, args=(note,))
+            #stop.start() # yes, I know how dumb this line sounds. It means that the thread that will kill
+                         # the note after .001 seconds should be started.
+        elif self.currentstepstate == True and self.number <= 4 : # tracks 0,1,2,3,4 are analog
+            pass #TODO send trigger to pi
+        else:
+            pass
             
 
 
@@ -268,13 +351,23 @@ class Track:
             self.currentstep = 0
         #enabling this print for debug WILL eat a core of the CPU
         #print("current step = {}::{} = {}".format(self.currentstep//4,self.currentstep%4,self.steps[self.currentstep//4].getmicrostep(self.currentstep%4)))
-        return self.steps[self.currentstep//4].getmicrostep(self.currentstep%4)
+        self.currentstepstate = self.steps[self.currentstep//4].getmicrostep(self.currentstep%4)
+        #print("track {} step {} is {}".format(self.number, self.currentstep, self.currentstepstate))
 
     def getnumber(self):
         return self.number
 
     def getname(self):
         return self.drum.name
+
+#    _____      _   _                      
+#   |  __ \    | | | |                     
+#   | |__) |_ _| |_| |_ ___ _ __ _ __  ___ 
+#   |  ___/ _` | __| __/ _ \ '__| '_ \/ __|
+#   | |  | (_| | |_| ||  __/ |  | | | \__ \
+#   |_|   \__,_|\__|\__\___|_|  |_| |_|___/
+#                                          
+#                                          
 
 class Pattern:
     def __init__(self,id):
@@ -309,8 +402,32 @@ class Pattern:
         for i in range(0,10):
             self.tracks[i].advancestep()
 
-    def debugdisplay(self):
-        self.getactivetrack().debugdisplayallsteps()
+    def rgbstepdisplay(self):
+        self.getactivetrack().rgbstepdisplayallsteps()
+
+    def trackseldisplay(self):
+        y = 5
+        offset = 5
+        for x in range(offset,offset+5):
+            uh.set_pixel(x, y, 10,10,100)
+        y = 6
+        for x in range(offset,offset+5):
+            uh.set_pixel(x, y, 10,100,10)
+        activetrackled = self.activetrack
+        if(self.activetrack > 4):
+            activetrackled -= 5
+            uh.set_pixel(activetrackled+offset, y, 255, 255, 255)
+        else:
+            uh.set_pixel(activetrackled+offset, y-1, 255, 255, 255 )
+            
+#     _____                       
+#    / ____|                      
+#   | (___   ___  _ __   __ _ ___ 
+#    \___ \ / _ \| '_ \ / _` / __|
+#    ____) | (_) | | | | (_| \__ \
+#   |_____/ \___/|_| |_|\__, |___/
+#                        __/ |    
+#                       |___/     
 
 class Song:
     def __init__(self):
@@ -324,6 +441,7 @@ class Song:
         self.currentpattern = 0
         self.currentpatternseqstep = 0
         self.patternlocked = False
+        self.displaymode = 0
         for i in range(8):
             # valid are "stay" "left" "right" "up" "down"
             self.patternseq.append("stay")
@@ -383,9 +501,6 @@ class Song:
             else:
                 self.currentpatternseqstep = 0
 
-        # self.showpatterngrid()
-        # self.showpatternseq()
-
     def showpatternseq(self):
         #TODO make current step brighter
         for i in range(8):
@@ -396,37 +511,27 @@ class Song:
                 y = 5
 
             if i > self.patternseqlen:
-                r = 0
-                g = 0
-                b = 0
+                rgb = 0,0,0
             elif self.patternseq[i] == "up":
-                r = 31
-                g = 0
-                b = 0
+                rgb = 31,0,0
             elif self.patternseq[i] == "down":
-                r = 0
-                g = 0
-                b = 31
+                rgb = 0,0,31
             elif self.patternseq[i] == "right":
-                r = 0
-                g = 31
-                b = 0
+                rgb = 0,31,0
             elif self.patternseq[i] == "left":
-                r = 31
-                g = 0
-                b = 31
+                rgb = 31,0,31
             elif self.patternseq[i] == "stay":
-                r = 31
-                g = 31
-                b = 31
+                rgb = 31,31,31
 
             if i == self.currentpatternseqstep:
-                r = int(r * 8)
-                g = int(g * 8)
-                b = int(b * 8)
+                rgb = tuple(map(mul, rgb, (8,8,8)))
 
-            uh.set_pixel(x, y, r, g, b)
-            uh.show()
+            uh.set_pixel(x, y, *rgb)
+            if self.patternlocked:
+                uh.set_pixel(4,5,255,0,0)
+            else:
+                uh.set_pixel(4,5,0,255,0)
+            #uh.show()
 
     def showpatterngrid(self):
         for i in range(4):
@@ -436,65 +541,72 @@ class Song:
                 xcurr = self.currentpattern % 4
                 ycurr = self.currentpattern // 4
                 if x == xcurr and y == ycurr: # stay
-                    r = 31
-                    g = 31
-                    b = 31
+                    rgb = 31,31,31
                     if self.patternseq[self.currentpatternseqstep] == "stay":
-                        r = 255
-                        g = 255
-                        b = 255
+                        rgb = 255,255,255
                 elif x==xcurr and y == (ycurr + 1)%4: #down
-                    r = 0
-                    g = 0
-                    b = 31
+                    rgb = 0,0,31
                     if self.patternseq[self.currentpatternseqstep] == "down":
-                        b = 255
+                        rgb = 0,0,255
                 elif x==xcurr and y == (ycurr - 1)%4: #up
-                    r = 31
-                    g = 0
-                    b = 0
+                    rgb = 31,0,0
                     if self.patternseq[self.currentpatternseqstep] == "up":
-                        r = 255
+                        rgb = 255,0,0
                 elif x==(xcurr - 1)%4 and y == ycurr: #left
-                    r = 31
-                    g = 0
-                    b = 31
+                    rgb = 31,0,31
                     if self.patternseq[self.currentpatternseqstep] == "left":
-                        b = 255
-                        r = 255
+                        rgb = 255,0,255
                 elif x==(xcurr + 1)%4 and y == ycurr: #right
-                    r = 0
-                    g = 31
-                    b = 0
+                    rgb = 0,31,0
                     if self.patternseq[self.currentpatternseqstep] == "right":
-                        g = 255
+                        rgb = 0,255,0
                 else:
-                    r = 5
-                    g = 5
-                    b = 5
+                    rgb = 5,5,5
 
-                uh.set_pixel(x, y, r, g, b)
-                uh.show()
+                uh.set_pixel(x, y, *rgb)
+        #uh.show()
     
     def showtracknum(self):
         write_string('TRK {}'.format(self.getcurrentpattern().getactivetracknum()),kerning=False)
-        show()
+        #show()
 
     def showtrackname(self):
         write_string(self.getcurrentpattern().getactivetrackname(),kerning=False)
-        show()
+        #show()
 
-    def debugdisplay(self):
-        self.getcurrentpattern().debugdisplay()
+    def rgbstepdisplay(self):
+        self.getcurrentpattern().rgbstepdisplay()
+    
+    def trackseldisplay(self):
+        self.getcurrentpattern().trackseldisplay()
     
     def updatedisplay(self):
-        #self.showpatterngrid()
-        #self.showpatternseq()
-        self.showtrackname()
-        self.debugdisplay()
+        if self.displaymode == 0:
+            self.showtracknum() # Track num doesn't need displayed on the microdot display because it can be shown on the RGBs
+            self.rgbstepdisplay()
+            self.showpatternseq()
+            self.trackseldisplay()
+            
+        elif self.displaymode == 1:
+            self.showpatterngrid()
+            self.showpatternseq()
+            self.trackseldisplay()
+        # Seriously DO NOT call these any more than necessary, it tanks performance.
+        uh.show()
+        show()
 
+    def changedisplaymode(self,mode):
+        self.displaymode = mode
+        
 
-
+#         _       _        _               
+#        | |     | |      | |              
+#        | |_   _| | _____| |__   _____  __
+#    _   | | | | | |/ / _ \ '_ \ / _ \ \/ /
+#   | |__| | |_| |   <  __/ |_) | (_) >  < 
+#    \____/ \__,_|_|\_\___|_.__/ \___/_/\_\
+#                                          
+#                                          
 
 class Jukebox:
     def __init__(self):
@@ -509,7 +621,8 @@ class Jukebox:
         return self.songs[self.activesong]
    
     def savesong(self,songnum):
-        pickle.dump( self.songs[songnum], open( "songs/s{}.p".format(songnum), "wb" ) )
+        #pickle.dump( self.songs[songnum], open( "songs/s{}.p".format(songnum), "wb" ) )
+        pass
     
     def saveallsongs(self):
         for i in range(16):
@@ -524,8 +637,11 @@ class Jukebox:
     def incpattern(self):
         self.songs[self.activesong].incpattern()
 
-    def lock(self):
+    def fliplock(self):
         self.songs[self.activesong].flippatternlock()
+
+    def islocked(self):
+        return self.songs[self.activesong].patternlocked
 
     def getactivepattern(self):
         return self.songs[self.activesong].getcurrentpattern()
@@ -535,17 +651,26 @@ class Jukebox:
 
     def setactivetrack(self,num):
         self.getactivepattern().setactivetrack(num)
-        self.getactivepattern().setactivetrack(num)
 
     def flipmicrostep(self,pos,micropos):
         self.getactivetrack().flipmicrostep(pos,micropos)
 
     def advancestep(self):
-        self.getactivesong().advancecurrentpatternsteps()
+        self.songs[self.activesong].advancecurrentpatternsteps()
 
     def updatedisplay(self):
         self.songs[self.activesong].updatedisplay()
+
+    def changedisplaymode(self,mode):
+        # this is basically just shadowing songs' but is done so that
+        # changing the song can go into the display mode that song was last
+        # set to.
+        self.songs[self.activesong].changedisplaymode(mode)
         
+#   ____  ____  __   ____  ____  _  _  ____ 
+#  / ___)(_  _)/ _\ (  _ \(_  _)/ )( \(  _ \
+#  \___ \  )( /    \ )   /  )(  ) \/ ( ) __/
+#  (____/ (__)\_/\_/(__\_) (__) \____/(__)  
 
 def showStartup(uh):
     write_string('VEGA',kerning=False)
@@ -596,26 +721,6 @@ def showStartup(uh):
     uh.clear()
     time.sleep(1)
 
-def checkInput():
-    if exists("/dev/hidraw0"):
-        print("Handwired Keyboard Detected")
-    else:
-        write_string('KB1 NF',kerning=False)
-        show()
-        time.sleep(.5)
-        print("[bold red]Handwired Keyboard NOT found[bold red]")
-
-    if exists("/dev/hidraw1"): #
-        print("BDN9 Keyboard Detected")
-    else:
-        write_string('KB2 NF',kerning=False)
-        show()
-        time.sleep(.5)
-        print("[bold red]BDN9 Keyboard NOT found[bold red]")
-    # checking /dev/hidraw* may not be consistant, and the tested keyboard actually creates hidraw0 and hidraw1, but reading from /dev/usb didn't
-    # seem to be as consistant, or was at the very least slower. If it needs changed later so be it
-
-
 J1 = Jukebox()
 # This Jukebox object contains 16 songs, each song contains 16 patterns, each pattern 10 tracks,
 # each track 16 steps & an associated drum, and each step has 4 'micro steps'
@@ -623,6 +728,13 @@ J1 = Jukebox()
 
 J1.saveallsongs()
 #showStartup(uh)
+
+#  ::::::::::::.,:::::: .::::::.::::::::::::::::::.    :::.  .,-:::::/  
+#  ;;;;;;;;'''';;;;'''';;;`    `;;;;;;;;'''';;;`;;;;,  `;;;,;;-'````'   
+#       [[      [[cccc '[==/[[[[,    [[     [[[  [[[[[. '[[[[[   [[[[[[/
+#       $$      $$""""   '''    $    $$     $$$  $$$ "Y$c$$"$$c.    "$$ 
+#       88,     888oo,__88b    dP    88,    888  888    Y88 `Y8bo,,,o88o
+#       MMM     """"YUMMM"YMmMY"     MMM    MMM  MMM     YM   `'YMUP"YMM
 
 S1 = J1.getsong(1)
 
@@ -641,17 +753,32 @@ S1.setpatternseqstep(7, "stay")
 # active track is tied to the pattern, meaning on pattern
 # change the track being edited will also change
 # which would be a terrible user experiance.
-J1.setactivetrack(5)
-# make a 4-on-the-floor to test with.
-for i in range(16):
-    J1.flipmicrostep(i,0)
+for k in range(10):
+    # make a 4-on-the-floor to test with.
+    for i in range(16):
+        J1.flipmicrostep(i,0)
 
 # S1.showpatternseq()
 # S1.showpatterngrid()
 
+
+#   .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------.  .----------------. 
+#  | .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. || .--------------. |
+#  | |  ___  ____   | || |  _________   | || |  ____  ____  | || |   ______     | || |     ____     | || |      __      | || |  _______     | || |  ________    | |
+#  | | |_  ||_  _|  | || | |_   ___  |  | || | |_  _||_  _| | || |  |_   _ \    | || |   .'    `.   | || |     /  \     | || | |_   __ \    | || | |_   ___ `.  | |
+#  | |   | |_/ /    | || |   | |_  \_|  | || |   \ \  / /   | || |    | |_) |   | || |  /  .--.  \  | || |    / /\ \    | || |   | |__) |   | || |   | |   `. \ | |
+#  | |   |  __'.    | || |   |  _|  _   | || |    \ \/ /    | || |    |  __'.   | || |  | |    | |  | || |   / ____ \   | || |   |  __ /    | || |   | |    | | | |
+#  | |  _| |  \ \_  | || |  _| |___/ |  | || |    _|  |_    | || |   _| |__) |  | || |  \  `--'  /  | || | _/ /    \ \_ | || |  _| |  \ \_  | || |  _| |___.' / | |
+#  | | |____||____| | || | |_________|  | || |   |______|   | || |  |_______/   | || |   `.____.'   | || ||____|  |____|| || | |____| |___| | || | |________.'  | |
+#  | |              | || |              | || |              | || |              | || |              | || |              | || |              | || |              | |
+#  | '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' || '--------------' |
+#   '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------'  '----------------' 
+# This is why this script needs to be ran as root....
+#
 ### Workaround for down key events retriggering adapted from https://github.com/boppreh/keyboard/issues/158
 
 keystate = defaultdict(lambda: 'up')
+currentdisplaymode = 0
 
 def pressed(name, event):
     return keystate[name] == 'up' and name == event.name and event.event_type == 'down'
@@ -680,7 +807,51 @@ def handlemicrostep(name):  #this is super ugly, but I can't think of a better w
     for key in mapping:
         if(keystate[key] == 'held'):
             J1.flipmicrostep(mapping[key],microsteppos)
-            #print("flipped step {}:{}::{}:{} ".format(J1.getactivepattern,J1.getactivetrack(),mapping[key],microsteppos))
+            print("flipped step {}:{}::{}:{} ".format(J1.getactivepattern,J1.getactivetrack(),mapping[key],microsteppos))
+
+def changetrack(name):
+    if(name == "q"):
+        J1.setactivetrack(0)
+    elif(name == "w"):
+        J1.setactivetrack(1)
+    elif(name == "e"):
+        J1.setactivetrack(2)
+    elif(name == "r"):
+        J1.setactivetrack(3)
+    elif(name == "t"):
+        J1.setactivetrack(4)
+    elif(name == "y"):
+        J1.setactivetrack(5)
+    elif(name == "u"):
+        J1.setactivetrack(6)
+    elif(name == "i"):
+        J1.setactivetrack(7)
+    elif(name == "o"):
+        J1.setactivetrack(8)
+    elif(name == "p"):
+        J1.setactivetrack(9)
+    else:
+        return
+
+def changebpm(name):
+    global bpm
+    if(name == "h"): #LEFT, this is currently backwards, as the QMK config is backwards
+        bpm /= 1.1
+        if bpm <= 0:
+            bpm = 0
+        else:
+            print("BPM decremented")
+    elif(name == "g"): #RIGHT
+        bpm *= 1.1
+        print("BPM incremented")
+
+def changedisplaymode(name):
+    if(name == "d"):
+        global currentdisplaymode
+        currentdisplaymode = (currentdisplaymode + 1)%2
+        J1.changedisplaymode(currentdisplaymode)
+        print("Display Mode Changed")
+
 
 def handler(event: keyboard.KeyboardEvent):
     if (keystate[event.name] == 'down' and event.event_type == 'down'):
@@ -694,13 +865,16 @@ def handler(event: keyboard.KeyboardEvent):
     if pressed(event.name, event):
         print('pressed', event.name)
         if(event.name == "l"):
-            J1.lock()
+            J1.fliplock()
         handlemicrostep(event.name)
+        changetrack(event.name)
+        changedisplaymode(event.name)
+        changebpm(event.name)
 
 
     if released(event.name, event):
         #This means released without being held, a quick 'tap'
-	    print('released', event.name)
+        print('released', event.name)
 
     if held(event.name):
         #print('held', event.name)
@@ -711,10 +885,42 @@ def handler(event: keyboard.KeyboardEvent):
 hook = keyboard.hook(handler)
 J1.updatedisplay()
 
+#                                                                               
+#                ,,                                   ,,    ,,                  
+#    .g8"""bgd `7MM                       `7MM      `7MM    db            mm    
+#  .dP'     `M   MM                         MM        MM                  MM    
+#  dM'       `   MMpMMMb.  .gP"Ya   ,p6"bo  MM  ,MP'  MM  `7MM  ,pP"Ybd mmMMmm  
+#  MM            MM    MM ,M'   Yb 6M'  OO  MM ;Y     MM    MM  8I   `"   MM    
+#  MM.           MM    MM 8M"""""" 8M       MM;Mm     MM    MM  `YMMMa.   MM    
+#  `Mb.     ,'   MM    MM YM.    , YM.    , MM `Mb.   MM    MM  L.   I8   MM    
+#    `"bmmmd'  .JMML  JMML.`Mbmmd'  YMbmd'.JMML. YA..JMML..JMML.M9mmmP'   `Mbmo 
+#                                                                               
+#   This is the code that makes sure everything is working, before we get off the ground
+
+def checkInput():
+    if exists("/dev/hidraw0"):
+        print("Handwired Keyboard Detected")
+    else:
+        write_string('KB1 NF',kerning=False)
+        show()
+        time.sleep(.5)
+        print("[bold red]Handwired Keyboard NOT found[bold red]")
+
+    if exists("/dev/hidraw1"): #
+        print("BDN9 Keyboard Detected")
+    else:
+        write_string('KB2 NF',kerning=False)
+        show()
+        time.sleep(.5)
+        print("[bold red]BDN9 Keyboard NOT found[bold red]")
+    # checking /dev/hidraw* may not be consistant, and the tested keyboard actually creates hidraw0 and hidraw1, but reading from /dev/usb didn't
+    # seem to be as consistant, or was at the very least slower. If it needs changed later so be it
+
 PDrunning = False
 
 while PDrunning == False:
     #`purr-data -nogui -open X.pd`
+    # purr-data -nogui -open dsponfix.pd
     for proc in psutil.process_iter(['name']):
         if proc.info["name"] == "purr-data":
             PDrunning = True
@@ -729,16 +935,56 @@ if PDrunning:
     time.sleep(.25)
     port = mido.open_output("Pure Data Midi-In 1")
 
+starttime = time.time()
+correction = 0
+firstrun = True
+
+#    _____ _            _     ___   ___  ____  
+#   |_   _| |__   ___  | |   / _ \ / _ \|  _ \ 
+#     | | | '_ \ / _ \ | |  | | | | | | | |_) |
+#     | | | | | |  __/ | |__| |_| | |_| |  __/ 
+#     |_| |_| |_|\___| |_____\___/ \___/|_|    
+#     
+# This is the beating heart
+
 while True:
-    # t = threading.Timer(1,S1.incpattern())
+    currenttime = time.time()
+    elapsed = currenttime - starttime
+    print("Last loop took {} seconds".format(elapsed))
+    actualbpm = (1/(elapsed/16))*60
+    if(firstrun): # We need to ignore the first garbage run
+        actualbpm = bpm
+        firstrun = False
+    print("That is {} BPM".format(actualbpm))
+    starttime = time.time()
+    # Timing correction. This may take a while to converge
+    # Changing the porportional value here may help improve convergence time,
+    # At the cost of overshoot/settling time
+    if(actualbpm < bpm): #if to slow, we need to speed up
+        print("bpm to slow, correcting by {}".format(correction))
+        correction += .0006 * abs(bpm-actualbpm)
+    else:
+        print("bpm to fast, correcting by {}".format(correction))
+        correction -= .0006 * abs(bpm-actualbpm)
+
     for i in range(64):
+        sleepytime = 60/(bpm*4) # This needs to be a responsive control, hence it being placed in here
+        sleepytime -= (.01+correction) 
+        #time.sleep is in SECONDS not milliseconds
+        time.sleep(sleepytime) # roughly 120bpm
+
         J1.advancestep()
-        #time.sleep(.0020833) # roughly 120bpm
-        time.sleep(.5)
         J1.updatedisplay()
-    J1.incpattern()
+    if(J1.islocked()==False):
+        print("Pattern Incremented")
+        J1.incpattern()
+    else:
+        print("Pattern Held")
     #print("pattern at addr: {}".format(J1.getactivepattern()))
 
+
+
+### Original code plan
 
 # TODO this is still a tad illogical, as it ties the analog modules id, sample, etc to each pattern, even though it really should be tied to a song
 # Also, once that id is tied to the song, that probably makes it necessary to display a scrolling message on the display saying what module needs to be
@@ -752,7 +998,7 @@ while True:
 # Will add if necessary, as is, I'm not really worried about this failing.
 
 # Check Keyboards (BDN9 and Alpha)
-checkInput()
+
 # Check Connection to Pico
 
 # Next, we need to ensure PureData has started up and is running
