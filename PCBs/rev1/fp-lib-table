@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name RP2040)(type KiCad)(uri /Users/mark/prj/working/micros/arm/RP2040/rev1)(options "")(descr "57 pin"))
+)
