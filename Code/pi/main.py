@@ -22,6 +22,7 @@
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # Imports
 #------------------------------------------------------------------------------------------------------------------------------------------------------
+from __future__ import annotations
 from microdotphat import write_string, scroll, set_pixel, clear, show, WIDTH, HEIGHT # Microdot phat (text mostly)
 # See https://learn.pimoroni.com/article/getting-started-with-micro-dot-phat
 from gpiozero import Button
@@ -56,6 +57,7 @@ import psutil # check if puredata is running - https://github.com/giampaolo/psut
 from operator import mul #used for working with GRB tuple values
 
 from dataclasses import dataclass #used for sending data from the drums to the steps
+from dataclasses import asdict
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # (Most of the) Globals
@@ -169,6 +171,10 @@ class DigitalDrumData(DrumData):
     sample_rate: int
     delay: int
     reverb: int
+    #Sample is stored as int, but used really weird,
+    # as it's actually a bank, so sample the first 
+    # digit is the bank, the sencond the sample itself.
+    sample: int
 
 @dataclass
 class AnalogDrumData(DrumData):
@@ -266,6 +272,9 @@ class Drum:
     def get_number(self):
         return self.number
 
+    def get_name(self):
+        return "bad"
+
 class AnalogDrum(Drum):
     def __init__(self,name, active, number):
         active = False
@@ -275,6 +284,9 @@ class AnalogDrum(Drum):
     def play_step(self):
         #This should be called if there's an empty analog drum socket.
         pass
+    
+    def get_name(self):
+        return "empty"
 
 class BassDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
@@ -282,7 +294,9 @@ class BassDrumModule(AnalogDrum):
         self.base = BassDrumData(100,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(BassDrumData(0,0,0)))
-    pass
+    
+    def get_name(self):
+        return "BASS"
 
 class TomDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
@@ -290,16 +304,19 @@ class TomDrumModule(AnalogDrum):
         self.base = TomDrumData(100,64,64,0)
         for i in range(16): #16 steps per track
             self.steps.append(Step(TomDrumData(0,0,0,0)))
-        pass
-    pass
+    
+    def get_name(self):
+        return "TOM "
+
 class SnareDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
         super().__init__(name, active, number)
         self.base = SnareDrumData(100,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(SnareDrumData(0,0)))
-        pass
-    pass
+
+    def get_name(self):
+        return "SNR "
 
 class HiHatDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
@@ -307,31 +324,37 @@ class HiHatDrumModule(AnalogDrum):
         self.base = HiHatDrumData(100,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(HiHatDrumData(0,0)))
-        pass
-    pass
+
+    def get_name(self):
+        return "HAT "
+
 class FMDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
         super().__init__(name, active, number)
         self.base = FMDrumData(100,64,64,64,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(FMDrumData(0,0,0,0,0,0)))
-        pass
-    pass
+        
+    def get_name(self):
+        return "FM  "
+
 class DroneDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
         super().__init__(name, active, number)
         self.base = FMDrumData(100,64,64,64,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(FMDrumData(0,0,0,0,0,0)))
-        pass
-    pass
+    
+    def get_name(self):
+        return "DRN "
+
 
 class DigitalDrum(Drum):
     def __init__(self,name, active, number):
-        self.base = DigitalDrumData(100,64,64,127,0,0)
+        self.base = DigitalDrumData(100,64,64,127,0,0,0)
         super().__init__(name, active, number)
         for i in range(16): #16 steps per track
-            self.steps.append(Step(DigitalDrumData(0,0,0,0,0,0)))
+            self.steps.append(Step(DigitalDrumData(0,0,0,0,0,0,0)))
     def setsamplebank():
         #%3
         pass
@@ -388,6 +411,9 @@ class DigitalDrum(Drum):
         time.sleep(.009)
         msg = mido.Message('note_off', note=note)
         port.send(msg)
+
+    def get_name(self):
+        return "DGTL"
 
 #    _____      _   _                      
 #   |  __ \    | | | |                     
@@ -460,6 +486,32 @@ class Pattern:
             uh.set_pixel(active_track_led+offset, y, 255, 255, 255)
         else:
             uh.set_pixel(active_track_led+offset, y-1, 255, 255, 255 )
+    
+    def rgb_step_params_display(self,):
+        active_track = self.get_active_track()
+        #This gets the names of each of the parameters for each drum
+        params = active_track.base.__dataclass_fields__.keys()        
+        #Then, get the number of parameters there are
+        num_params = len(params)
+        #But the digital drums and toms both have a weird, special
+        # parameter, which needs corrected for. I'm sure there's
+        # a more elegant way to do this, but ╮(─▽─)╭
+        param_values = asdict(active_track.base).values()
+        local_param_list = []
+        for val in param_values:
+            local_param_list.append(val)
+        if "sample" in params or "range_switch" in params:
+            num_params = num_params - 1
+            local_param_list.pop()
+        
+        i = 0
+        for x in range(17-num_params,17):
+            for y in range(0,local_param_list[i]//19): #TODO, the bar grapgh is going to need better code
+                print(local_param_list[i])
+                # all parameters are defined over the range of 0-127
+                uh.set_pixel(x,y,33*y,33*y,255)
+            i += 1
+            #TODO, add the offset values
             
 #     _____                       
 #    / ____|                      
@@ -604,13 +656,17 @@ class Song:
 
                 uh.set_pixel(x, y, *rgb)
         #uh.show()
+
+    def show_bpm(self):
+        global bpm
+        write_string(str(bpm),kerning=False)
     
     def show_track_num(self):
         write_string('TRK {}'.format(self.get_current_pattern().get_active_track_num()),kerning=False)
         #show()
 
     def show_track_name(self):
-        write_string(self.get_current_pattern().get_active_track_name(),kerning=False)
+        write_string(self.get_current_pattern().get_active_track_name()+ " " +str(self.get_current_pattern().get_active_track_num()),kerning=False)
         #show()
 
     def rgb_step_display(self):
@@ -620,22 +676,33 @@ class Song:
         self.get_current_pattern().track_select_display()
     
     def update_display(self):
+        # Clear the screen
+        for x in range(0,17):
+            for y in range(0,7):
+                uh.set_pixel(x,y,0,0,0)
+
         if self.display_mode == 0:
-            self.show_track_num() # Track num doesn't need displayed on the microdot display because it can be shown on the RGBs
+            #self.show_track_name()
+            self.show_bpm()
             self.rgb_step_display()
             self.show_pattern_seq()
             self.track_select_display()
             
         elif self.display_mode == 1:
+            self.show_track_name()
             self.show_patterngrid()
             self.show_pattern_seq()
             self.track_select_display()
+            self.rgb_step_params_display()
         # Seriously DO NOT call these any more than necessary, it tanks performance.
         uh.show()
         show()
 
     def change_display_mode(self,mode):
         self.display_mode = mode
+
+    def rgb_step_params_display(self):
+        self.get_current_pattern().rgb_step_params_display()
         
 
 #         _       _        _               
@@ -807,7 +874,7 @@ def handlemicrostep(name):  #this is super ugly, but I can't think of a better w
             J1.flip_microstep(mapping[key],microstep_pos)
             print("flipped step {}:{}::{}:{} ".format(J1.get_active_pattern,J1.get_active_track(),mapping[key],microstep_pos))
 
-def changetrack(name):
+def change_track(name):
     if(name == "q"):
         J1.set_active_track(0)
     elif(name == "w"):
@@ -831,16 +898,16 @@ def changetrack(name):
     else:
         return
 
-def changebpm(name):
+def change_bpm(name):
     global bpm
     if(name == "h"): #LEFT, this is currently backwards, as the QMK config is backwards
-        bpm /= 1.1
+        bpm = int(bpm+2)
         if bpm <= 0:
             bpm = 0
         else:
             print("BPM decremented")
     elif(name == "g"): #RIGHT
-        bpm *= 1.1
+        bpm = int(bpm-2)
         print("BPM incremented")
 
 def change_display_mode(name):
@@ -865,9 +932,9 @@ def handler(event: keyboard.KeyboardEvent):
         if(event.name == "l"):
             J1.flip_lock()
         handlemicrostep(event.name)
-        changetrack(event.name)
+        change_track(event.name)
         change_display_mode(event.name)
-        changebpm(event.name)
+        change_bpm(event.name)
 
 
     if released(event.name, event):
