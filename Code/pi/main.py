@@ -114,6 +114,9 @@ class MicroStep:
     def get_microstep(self):
         return self.microstep
 
+    def get_data(self):
+        return self.data
+
         
 class Step:
     def __init__(self,data):
@@ -143,6 +146,9 @@ class Step:
 
     def get_microstep(self,pos):
         return self.step[pos].get_microstep()
+
+    def get_data(self,pos):
+        return self.step[pos].get_data()
     
     def get_active(self):
         return self.active
@@ -274,6 +280,12 @@ class Drum:
 
     def get_name(self):
         return "bad"
+
+    def get_current_microstep(self):
+        return self.steps[self.current_step//4].get_microstep(self.current_step%4)
+
+    def get_current_microstep_data(self):
+        return self.steps[self.current_step//4].get_data(self.current_step%4)
 
 class AnalogDrum(Drum):
     def __init__(self,name, active, number):
@@ -500,18 +512,58 @@ class Pattern:
         local_param_list = []
         for val in param_values:
             local_param_list.append(val)
+        # Now, to get this particular step's offsets
+        param_step_values = asdict(active_track.get_current_microstep_data()).values()
+        local_step_param_list = []
+        for val in param_step_values:
+            local_step_param_list.append(val)
+
         if "sample" in params or "range_switch" in params:
             num_params = num_params - 1
             local_param_list.pop()
+            local_step_param_list.pop()
+        
+        #add the base value to the offset value, for showing on the display
+        for i in range(0,num_params):
+            local_step_param_list[i] += local_param_list[i]
+        
         
         i = 0
         for x in range(17-num_params,17):
-            for y in range(0,local_param_list[i]//19): #TODO, the bar grapgh is going to need better code
-                print(local_param_list[i])
+            for y in range(0,7): #TODO, the bar grapgh is going to need better code
                 # all parameters are defined over the range of 0-127
-                uh.set_pixel(x,y,33*y,33*y,255)
+                if local_param_list[i] > y*16:
+                    base_brightness = 0
+                    if local_param_list[i] > y*16:
+                        # uh.set_pixel(x,abs(6-y),0,0,255)
+                        base_brightness = 255
+                    else:
+                        #Show the value in the diming
+                        dim = local_param_list[i] % ((y+1)*16)
+                        # uh.set_pixel(x,abs(6-y),0,0,dim)    
+                        base_brightness = dim
+                else:
+                    #uh.set_pixel(x,abs(6-y),0,0,0)
+                    base_brightness = 0
+
+                if local_step_param_list[i] > y*16:
+                    step_brightness = 0
+                    if local_step_param_list[i] > y*16:
+                        # uh.set_pixel(x,abs(6-y),0,0,255)
+                        step_brightness = 255
+                    else:
+                        #Show the value in the diming
+                        dim = local_step_param_list[i] % ((y+1)*16)
+                        # uh.set_pixel(x,abs(6-y),0,0,dim)    
+                        step_brightness = dim
+                else:
+                    #uh.set_pixel(x,abs(6-y),0,0,0)
+                    step_brightness = 0
+                
+                rgb = step_brightness,0,base_brightness
+
+                uh.set_pixel(x,abs(6-y),*rgb)
             i += 1
-            #TODO, add the offset values
             
 #     _____                       
 #    / ____|                      
@@ -1065,6 +1117,10 @@ correction = 0
 first_run = True
 
 while True:
+    #TODO make BPM offset time update per step.
+    #This *might* not work due to the very low sleep values
+    #but it's worth trying.
+    #If nothing else, it should probably be every 8 microsteps or so.
     current_time = time.time()
     elapsed = current_time - start_time
     print("Last loop took {} seconds".format(elapsed))
