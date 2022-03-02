@@ -474,45 +474,37 @@ class DigitalDrum(Drum):
         pass
 
     def play_step(self):
-        # the responsability for playing a drum should probably be attached to a particular drum type in 
-        # the drum's class itself, but ╮(─▽─)╭
-        #if isinstance(type(self.drum), DigitalDrum):
-        #msg = mido.Message('note_on', note=self.drum.pitch)
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_note = self.base.note + self.get_current_microstep_data().note
+        total_pan = self.base.pan + self.get_current_microstep_data().pan
+        total_sample_rate = self.base.sample_rate + self.get_current_microstep_data().sample_rate
+        total_delay = self.base.delay + self.get_current_microstep_data().delay
+        total_reverb = self.base.reverb + self.get_current_microstep_data().reverb
+        total_sample = self.base.sample + self.get_current_microstep_data().sample
+
         # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
         msg = mido.Message('note_on', note=2)
         note = 2
 
         if self.current_step_state == True and self.number >= 5 : #tracks 5,6,7,8,9 are digital
-            if self.number == 5:
-                msg = mido.Message('note_on', note=60, channel=0)
-                note = 60
-            elif self.number == 6:
-                msg = mido.Message('note_on', note=63, channel=1)
-                note = 63
-            elif self.number == 7:
-                msg = mido.Message('note_on', note=66, channel=2)
-                note = 66
-            elif self.number == 8:
-                msg = mido.Message('note_on', note=69, channel=3)
-                note = 69
-            elif self.number == 9:
-                msg = mido.Message('note_on', note=72, channel=4)
-                note = 72
-            #msg.copy(channel= self.number - 4) #the track number determines the MIDI channel, subtract 4 to make the midi channels 1,2,3,4,5
-            #print("playing note on MIDI Ch. {}".format(self.number -  5) )
-
-            #Having this on a thread isn't terribly ideal, but it's pretty heavily blocking, and this helps bring the project rate up
-            #mt = Process(target=port.send(msg))
-            #mt.start
+            #----PARAM----
+            msg = mido.Message('control_change', control=16, value=total_pan, channel=self.number-5) #Pan is on CC 16
             port.send(msg)
-            ## This stoping thread isn't needed with the current implimentation.
-            #stop = threading.Thread(target=self.kill_step, args=(note,))
-            #stop.start() # yes, I know how dumb this line sounds. It means that the thread that will kill
-                         # the note after .001 seconds should be started.
-        # elif self.current_step_state == True and self.number <= 4 : # tracks 0,1,2,3,4 are analog
-        #     pass #TODO send trigger to pi
-        # else:
-        #     pass
+            # msg = mido.Message('control_change', control=17, value=total_sample_rate, channel=self.number-5) #Sample rate is on CC 17
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=18, value=total_delay, channel=self.number-5) #Delay is on CC 18
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=19, value=total_reverb, channel=self.number-5) #Reverb is on CC 19
+            # port.send(msg)
+            #----SAMPLE----
+            # msg = mido.Message('control_change', control=20, value=total_sample, channel=self.number-5) #Sample BANK selection is on CC 20
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=21, value=total_sample, channel=self.number-5) #Actuall SAMPLE selection is on CC 21
+            # port.send(msg)
+            #-----PLAY-----
+            print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_note, velocity=total_level, channel=self.number-5) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port.send(msg)
 
     def kill_step(self,note):
         time.sleep(.009)
