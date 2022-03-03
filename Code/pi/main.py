@@ -74,6 +74,8 @@ bpm = 120 # This is the default value, it can be changed by the user later
 
 skip_print_count = 0
 skip_print_state = False
+skip_RGB_print_count = 0
+skip_RGB_print_state = False
 param_step = 0
 param_microstep = 0
 param_index = 0
@@ -341,14 +343,35 @@ class Drum:
     #This will fail if called on a basic drum or basic analog drum, as they don't have drum data to work on.
     #This updates with a value delta, as it is called from a UI event and is relative
     def change_base_value(self,value_delta):
+        global skip_print_count
+        global skip_print_state
         global param_index
+        if value_delta == 0:
+            return
+
+        if skip_print_state == False:
+            skip_print_count = 20
+            skip_print_state = True
+
         base_dict = asdict(self.base)
         i = 0
         param_index = param_index % len(base_dict.keys())
         for key in base_dict.keys():
             if i == param_index:
                 current_value = getattr(self.base,key)
+                check_value = current_value + value_delta
                 new_value = midi_clamp(current_value+value_delta)
+                if check_value == 128:
+                    write_string(str(key)+"▲",kerning=False)
+                elif check_value == -1:
+                    write_string(str(key)+"▼",kerning=False)
+                elif value_delta > 0:
+                    write_string(str(key)+"+",kerning=False)
+                elif value_delta < 0:
+                    write_string(str(key)+"-",kerning=False)
+                else:
+                    print("check_value is {}, value_delta is {}".format(check_value,value_delta))
+                    write_string("?????",kerning=False)
                 setattr(self.base,key,new_value)
             i += 1
         # check the new base values don't create bad offsets
@@ -360,10 +383,19 @@ class Drum:
     def change_step_value(self,value_delta,step_num,microstep_num):
         global skip_print_count
         global skip_print_state
+        global skip_RGB_print_count
+        global skip_RGB_print_state
         global param_index
+        if value_delta == 0:
+            return
+
         if skip_print_state == False:
             skip_print_count = 20
             skip_print_state = True
+        if skip_RGB_print_state == False:
+            skip_RGB_print_count = 20
+            skip_RGB_print_state = True
+
         base_dict = asdict(self.base)
         param_index = param_index % len(base_dict.keys())
         i = 0
@@ -382,8 +414,17 @@ class Drum:
                     new_value = value_delta + current_value
 
                 target_microstep_data = self.steps[step_num].step[microstep_num].get_data()
-                #print("Offset {} of {} changed from ({} + ) {} to {} -- input delta of {}, check value of {} -- Step {}:{}={} @ {}".format(key,self.name,base_value,current_value,new_value,value_delta,check_value,step_num,microstep_num,target_microstep_data,hex(id(target_microstep_data))))
-                write_string(str(key),kerning=False)
+                print("Offset {} of {} changed from ({} + ) {} to {} -- input delta of {}, check value of {} -- Step {}:{}={} @ {}".format(key,self.name,base_value,current_value,new_value,value_delta,check_value,step_num,microstep_num,target_microstep_data,hex(id(target_microstep_data))))
+                if check_value == 128:
+                    write_string(str(key)+"△",kerning=False)
+                elif check_value == -1:
+                    write_string(str(key)+"▽",kerning=False)
+                elif value_delta > 0:
+                    write_string(str(key)+"+",kerning=False)
+                elif value_delta < 0:
+                    write_string(str(key)+"-",kerning=False)
+                else:
+                    write_string("?????",kerning=False)
                 setattr(target_microstep_data,key,new_value)
             i += 1
 
@@ -560,6 +601,9 @@ class Pattern:
     def change_step_value(self,value_delta,step_num,microstep_num):
         self.get_active_track().change_step_value(value_delta,step_num,microstep_num)
 
+    def change_base_value(self,value_delta):
+        self.get_active_track().change_base_value(value_delta)
+
     def get_active_track_num(self):
         return self.tracks[self.active_track].get_number()
 
@@ -598,8 +642,8 @@ class Pattern:
     
     #Should probably typecheck on None, but making it -1 is easy and works
     def rgb_step_params_display(self,step,microstep):
-        global skip_print_count
-        global skip_print_state
+        global skip_RGB_print_count
+        global skip_RGB_print_state
 
         step_size = 18
 
@@ -621,9 +665,9 @@ class Pattern:
             param_step_values = asdict(active_track.get_current_microstep_data()).values()
         else:
             param_step_values = asdict(active_track.steps[step].get_data(microstep)).values()
-            if skip_print_state == False:
-                skip_print_count = 20
-                skip_print_state = True
+            if skip_RGB_print_state == False:
+                skip_RGB_print_count = 20
+                skip_RGB_print_state = True
             
         local_step_param_list = []
         for val in param_step_values:
@@ -843,6 +887,8 @@ class Song:
         self.get_current_pattern().track_select_display()
     
     def update_display(self):
+        global skip_RGB_print_count
+        global skip_RGB_print_state
         global skip_print_count
         global skip_print_state
         global param_step
@@ -856,6 +902,7 @@ class Song:
             #self.show_track_name()
             if skip_print_count == 0:
                 self.show_bpm()
+                skip_print_state = False
             else:
                 skip_print_count = skip_print_count - 1
             self.rgb_step_display()
@@ -866,14 +913,17 @@ class Song:
             #TODO, the BPM doesn't update unless there's a switch back to the other mode and back?
             if skip_print_count == 0:
                 self.show_bpm()
-            self.show_patterngrid()
-            self.show_pattern_seq()
-            self.track_select_display()
-            if skip_print_count == 0:
-                self.rgb_step_params_display(-1,-1)
                 skip_print_state = False
             else:
                 skip_print_count = skip_print_count - 1
+            self.show_patterngrid()
+            self.show_pattern_seq()
+            self.track_select_display()
+            if skip_RGB_print_count == 0:
+                self.rgb_step_params_display(-1,-1)
+                skip_RGB_print_state = False
+            else:
+                skip_RGB_print_count = skip_RGB_print_count - 1
                 #print("skip print count = {}".format(skip_print_count))
                 self.rgb_step_params_display(param_step,param_microstep)
         # Seriously DO NOT call these any more than necessary, it tanks performance.
@@ -888,6 +938,9 @@ class Song:
 
     def change_step_value(self,value_delta,step_num,microstep_num):
         self.get_current_pattern().change_step_value(value_delta,step_num,microstep_num)
+
+    def change_base_value(self,value_delta):
+        self.get_current_pattern().change_base_value(value_delta)
         
 
 #         _       _        _               
@@ -964,13 +1017,16 @@ class Jukebox:
 
     def change_step_value(self,value_delta,step_num,microstep_num):
         self.get_active_song().change_step_value(value_delta,step_num,microstep_num)
+
+    def change_base_value(self,value_delta):
+        self.get_active_song().change_base_value(value_delta)
         
 #   ____  ____  __   ____  ____  _  _  ____ 
 #  / ___)(_  _)/ _\ (  _ \(_  _)/ )( \(  _ \
 #  \___ \  )( /    \ )   /  )(  ) \/ ( ) __/
 #  (____/ (__)\_/\_/(__\_) (__) \____/(__)  
 
-def showStartup(uh):
+def show_startup(uh):
     write_string('VEGA',kerning=False)
     show()
     time.sleep(.3)
@@ -994,7 +1050,7 @@ def showStartup(uh):
     draw = ImageDraw.Draw(image)
     draw.text((display_width, -1), text, font=font, fill=255)
     offset_x = 0
-
+    # This range value is deteremined experimentally to be just long enough to hide the startup time
     for t in range(120):
         scroll()
         show()
@@ -1065,7 +1121,7 @@ def handle_microstep(name):  #this is super ugly, but I can't think of a better 
             J1.flip_microstep(mapping[key],microstep_pos)
             print("flipped step {}:{}::{}:{} ".format(J1.get_active_pattern,J1.get_active_track(),mapping[key],microstep_pos))
 
-def change_param(name):
+def change_step_param(name):
     global param_step
     global param_microstep
     global param_index
@@ -1093,8 +1149,20 @@ def change_param(name):
                 if(key_state[microstep_key] == 'held' ):
                     param_step = step_mapping[step_key]
                     param_microstep = microstep_mapping[microstep_key]
-                    print("Kep pressed, Changing Param of Step {}:{}, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
+                    #print("Kep pressed, Changing Param of Step {}:{}, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
                     J1.change_step_value(delta,step_mapping[step_key],microstep_mapping[microstep_key])
+
+def change_base_param(name):
+    global param_index
+    #TODO: These need changed when the QMK code get's fixed later
+    if(name == "z"):
+        delta = 1
+    elif(name == "x"):
+        delta = -1
+    else:
+        delta = 0
+
+    J1.change_base_value(delta)
 
 def change_param_index(name):
     global param_index
@@ -1156,7 +1224,8 @@ def handler(event: keyboard.KeyboardEvent):
         change_display_mode(event.name)
         change_bpm(event.name)
         change_param_index(event.name)
-        change_param(event.name)
+        change_step_param(event.name)
+        change_base_param(event.name)
 
 
     if released(event.name, event):
@@ -1223,9 +1292,11 @@ if PD_running:
 
 #TODO check and see what analog drums are connected.
 
-#showStartup(uh)
-
 hook = keyboard.hook(handler)
+
+from multiprocessing import Process
+p = Process(target=show_startup, args=(uh,))
+p.start()
 
 #  ::::::::::::.,:::::: .::::::.::::::::::::::::::.    :::.  .,-:::::/  
 #  ;;;;;;;;'''';;;;'''';;;`    `;;;;;;;;'''';;;`;;;;,  `;;;,;;-'````'   
@@ -1282,6 +1353,7 @@ for k in range(10):
 #     
 # This is the beating heart
 
+p.join()
 start_time = time.time()
 correction = 0
 first_run = True
