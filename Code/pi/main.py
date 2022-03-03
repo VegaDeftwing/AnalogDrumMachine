@@ -60,6 +60,8 @@ from operator import mul #used for working with GRB tuple values
 from dataclasses import dataclass #used for sending data from the drums to the steps
 from dataclasses import asdict
 
+import copy
+
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # (Most of the) Globals
 #------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -130,7 +132,7 @@ class Step:
         self.step = []
         self.active = False
         for i in range(4):
-            self.step.append(MicroStep(data))
+            self.step.append(MicroStep(copy.copy(data)))
     
     def flip_microstep(self, pos):
         self.step[pos].flip_microstep()
@@ -151,11 +153,15 @@ class Step:
     def get_microsteps(self):
         return [self.step[0].get_microstep(),self.step[1].get_microstep(),self.step[2].get_microstep(),self.step[3].get_microstep()]
 
+    #Pos is the microstep number, 0,1,2,or 3
     def get_microstep(self,pos):
         return self.step[pos].get_microstep()
 
+    #Pos is the microstep number, 0,1,2,or 3
     def get_data(self,pos):
-        return self.step[pos].get_data()
+        data = self.step[pos].data
+        #print("data fetched is @ {}".format(hex(id(data))))
+        return data
     
     def get_active(self):
         return self.active
@@ -375,10 +381,10 @@ class Drum:
                 else:
                     new_value = value_delta + current_value
 
-                print("Offset {} of {} changed from ({} + ) {} to {} -- input delta of {}, check value of {}".format(key,self.name,base_value,current_value,new_value,value_delta,check_value))
+                target_microstep_data = self.steps[step_num].step[microstep_num].get_data()
+                #print("Offset {} of {} changed from ({} + ) {} to {} -- input delta of {}, check value of {} -- Step {}:{}={} @ {}".format(key,self.name,base_value,current_value,new_value,value_delta,check_value,step_num,microstep_num,target_microstep_data,hex(id(target_microstep_data))))
                 write_string(str(key),kerning=False)
-                
-                setattr(self.steps[step_num].get_data(microstep_num),key,new_value)
+                setattr(target_microstep_data,key,new_value)
             i += 1
 
 
@@ -505,6 +511,7 @@ class DigitalDrum(Drum):
             print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
             msg = mido.Message('note_on', note=total_note, velocity=total_level, channel=self.number-5) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
             port.send(msg)
+
 
     def kill_step(self,note):
         time.sleep(.009)
@@ -867,7 +874,7 @@ class Song:
                 skip_print_state = False
             else:
                 skip_print_count = skip_print_count - 1
-                print("skip print count = {}".format(skip_print_count))
+                #print("skip print count = {}".format(skip_print_count))
                 self.rgb_step_params_display(param_step,param_microstep)
         # Seriously DO NOT call these any more than necessary, it tanks performance.
         uh.show()
@@ -1086,7 +1093,7 @@ def change_param(name):
                 if(key_state[microstep_key] == 'held' ):
                     param_step = step_mapping[step_key]
                     param_microstep = microstep_mapping[microstep_key]
-                    print("Step {}, Microstep {} held, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
+                    print("Kep pressed, Changing Param of Step {}:{}, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
                     J1.change_step_value(delta,step_mapping[step_key],microstep_mapping[microstep_key])
 
 def change_param_index(name):
@@ -1287,21 +1294,21 @@ while True:
         #If nothing else, it should probably be every 8 microsteps or so.
         current_time = time.time()
         elapsed = current_time - start_time
-        print("Last loop took {} seconds".format(elapsed))
+        #print("Last loop took {} seconds".format(elapsed))
         actual_bpm = (1/(elapsed/16))*60
         if(first_run): # We need to ignore the first garbage run
             actual_bpm = bpm
             first_run = False
-        print("That is {} BPM".format(actual_bpm))
+        #print("That is {} BPM".format(actual_bpm))
         start_time = time.time()
         # Timing correction. This may take a while to converge
         # Changing the porportional value here may help improve convergence time,
         # At the cost of overshoot/settling time
         if(actual_bpm < bpm): #if to slow, we need to speed up
-            print("bpm to slow, correcting by {}".format(correction))
+            #print("bpm to slow, correcting by {}".format(correction))
             correction += .0006 * abs(bpm-actual_bpm)
         else:
-            print("bpm to fast, correcting by {}".format(correction))
+            #print("bpm to fast, correcting by {}".format(correction))
             correction -= .0006 * abs(bpm-actual_bpm)
 
         for i in range(64):
