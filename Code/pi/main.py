@@ -23,6 +23,7 @@
 # Imports
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 from __future__ import annotations
+from asyncio import base_events
 from microdotphat import write_string, scroll, set_pixel, clear, show, WIDTH, HEIGHT # Microdot phat (text mostly)
 # See https://learn.pimoroni.com/article/getting-started-with-micro-dot-phat
 from gpiozero import Button
@@ -59,6 +60,8 @@ from operator import mul #used for working with GRB tuple values
 from dataclasses import dataclass #used for sending data from the drums to the steps
 from dataclasses import asdict
 
+import copy
+
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # (Most of the) Globals
 #------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -68,6 +71,14 @@ uh = UnicornHATMini()
 uh.set_brightness(0.5)
 
 bpm = 120 # This is the default value, it can be changed by the user later
+
+skip_print_count = 0
+skip_print_state = False
+skip_RGB_print_count = 0
+skip_RGB_print_state = False
+param_step = 0
+param_microstep = 0
+param_index = 0
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # Small helper FNs
@@ -123,7 +134,7 @@ class Step:
         self.step = []
         self.active = False
         for i in range(4):
-            self.step.append(MicroStep(data))
+            self.step.append(MicroStep(copy.copy(data)))
     
     def flip_microstep(self, pos):
         self.step[pos].flip_microstep()
@@ -144,11 +155,15 @@ class Step:
     def get_microsteps(self):
         return [self.step[0].get_microstep(),self.step[1].get_microstep(),self.step[2].get_microstep(),self.step[3].get_microstep()]
 
+    #Pos is the microstep number, 0,1,2,or 3
     def get_microstep(self,pos):
         return self.step[pos].get_microstep()
 
+    #Pos is the microstep number, 0,1,2,or 3
     def get_data(self,pos):
-        return self.step[pos].get_data()
+        data = self.step[pos].data
+        #print("data fetched is @ {}".format(hex(id(data))))
+        return data
     
     def get_active(self):
         return self.active
@@ -287,6 +302,133 @@ class Drum:
     def get_current_microstep_data(self):
         return self.steps[self.current_step//4].get_data(self.current_step%4)
 
+    #This will fail if called on a basic drum or basic analog drum, as they don't have drum data to work on.
+    def check_offset(self):
+        #for values in dataclass
+        base_dict = asdict(self.base)
+        offset_dict = asdict(self.get_current_microstep_data())
+        keys = base_dict.keys()
+        for key in keys:
+            max_pos_offset = 127 - base_dict[key]
+            max_neg_offset = -1 * base_dict[key]
+            if (offset_dict[key] > max_pos_offset):
+                #print("offset value {} to high @ {} + {} = {}".format(key,offset_dict[key],base_dict[key],offset_dict[key]+base_dict[key]))
+                setattr(self.get_current_microstep_data(),key,max_pos_offset)
+                #print("setting it to {}".format(getattr(self.get_current_microstep_data(),key)))
+            elif (offset_dict[key] < max_neg_offset):
+                #print("offset value {} to low @ {} + {} = {}".format(key,offset_dict[key],base_dict[key],offset_dict[key]+base_dict[key]))
+                setattr(self.get_current_microstep_data(),key,max_neg_offset)
+                #print("setting it to {}".format(getattr(self.get_current_microstep_data(),key)))
+
+    #Very similar to check_offset; however, this gets called on base value change to ensure all offsets are sane
+    def check_all_offsets(self):
+        #for values in dataclass
+        base_dict = asdict(self.base)
+        for i_step in self.steps:
+            for microstep in i_step.step:
+                offset_dict = asdict(microstep.get_data())
+                keys = base_dict.keys()
+                for key in keys:
+                    max_pos_offset = 127 - base_dict[key]
+                    max_neg_offset = -1 * base_dict[key]
+                    if (offset_dict[key] > max_pos_offset):
+                        #print("offset value {} to high @ {} + {} = {}".format(key,offset_dict[key],base_dict[key],offset_dict[key]+base_dict[key]))
+                        setattr(microstep.get_data(),key,max_pos_offset)
+                        #print("setting it to {}".format(getattr(self.get_current_microstep_data(),key)))
+                    elif (offset_dict[key] < max_neg_offset):
+                        #print("offset value {} to low @ {} + {} = {}".format(key,offset_dict[key],base_dict[key],offset_dict[key]+base_dict[key]))
+                        setattr(microstep.get_data(),key,max_neg_offset)
+                        #print("setting it to {}".format(getattr(self.get_current_microstep_data(),key)))
+
+    #This will fail if called on a basic drum or basic analog drum, as they don't have drum data to work on.
+    #This updates with a value delta, as it is called from a UI event and is relative
+    def change_base_value(self,value_delta):
+        global skip_print_count
+        global skip_print_state
+        global param_index
+        if value_delta == 0:
+            return
+
+        if skip_print_state == False:
+            skip_print_count = 20
+            skip_print_state = True
+
+        base_dict = asdict(self.base)
+        i = 0
+        param_index = param_index % len(base_dict.keys())
+        for key in base_dict.keys():
+            if i == param_index:
+                current_value = getattr(self.base,key)
+                check_value = current_value + value_delta
+                new_value = midi_clamp(current_value+value_delta)
+                if check_value == 128:
+                    write_string(str(key)+"▲",kerning=False)
+                elif check_value == -1:
+                    write_string(str(key)+"▼",kerning=False)
+                elif value_delta > 0:
+                    write_string(str(key)+"+",kerning=False)
+                elif value_delta < 0:
+                    write_string(str(key)+"-",kerning=False)
+                else:
+                    print("check_value is {}, value_delta is {}".format(check_value,value_delta))
+                    write_string("?????",kerning=False)
+                setattr(self.base,key,new_value)
+            i += 1
+        # check the new base values don't create bad offsets
+        self.check_all_offsets()
+
+    #This gets called from keyboard events, with the step_num and microstep_num being respective to the held keys
+    # when this function is called
+    #This updates with a value delta, as it is called from a UI event and is relative
+    def change_step_value(self,value_delta,step_num,microstep_num):
+        global skip_print_count
+        global skip_print_state
+        global skip_RGB_print_count
+        global skip_RGB_print_state
+        global param_index
+        if value_delta == 0:
+            return
+
+        if skip_print_state == False:
+            skip_print_count = 20
+            skip_print_state = True
+        if skip_RGB_print_state == False:
+            skip_RGB_print_count = 20
+            skip_RGB_print_state = True
+
+        base_dict = asdict(self.base)
+        param_index = param_index % len(base_dict.keys())
+        i = 0
+        for key in base_dict.keys():
+            if i == param_index:
+                current_value = getattr(self.steps[step_num].get_data(microstep_num),key)
+                base_value = getattr(self.base,key)
+                check_value = base_value + current_value + value_delta
+                if (check_value < 0):
+                    print("clamped to 0")
+                    new_value = -base_value
+                elif (check_value > 127):
+                    print("clamped to 127")
+                    new_value = 127 - base_value
+                else:
+                    new_value = value_delta + current_value
+
+                target_microstep_data = self.steps[step_num].step[microstep_num].get_data()
+                print("Offset {} of {} changed from ({} + ) {} to {} -- input delta of {}, check value of {} -- Step {}:{}={} @ {}".format(key,self.name,base_value,current_value,new_value,value_delta,check_value,step_num,microstep_num,target_microstep_data,hex(id(target_microstep_data))))
+                if check_value == 128:
+                    write_string(str(key)+"△",kerning=False)
+                elif check_value == -1:
+                    write_string(str(key)+"▽",kerning=False)
+                elif value_delta > 0:
+                    write_string(str(key)+"+",kerning=False)
+                elif value_delta < 0:
+                    write_string(str(key)+"-",kerning=False)
+                else:
+                    write_string("?????",kerning=False)
+                setattr(target_microstep_data,key,new_value)
+            i += 1
+
+
 class AnalogDrum(Drum):
     def __init__(self,name, active, number):
         active = False
@@ -379,45 +521,38 @@ class DigitalDrum(Drum):
         pass
 
     def play_step(self):
-        # the responsability for playing a drum should probably be attached to a particular drum type in 
-        # the drum's class itself, but ╮(─▽─)╭
-        #if isinstance(type(self.drum), DigitalDrum):
-        #msg = mido.Message('note_on', note=self.drum.pitch)
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_note = self.base.note + self.get_current_microstep_data().note
+        total_pan = self.base.pan + self.get_current_microstep_data().pan
+        total_sample_rate = self.base.sample_rate + self.get_current_microstep_data().sample_rate
+        total_delay = self.base.delay + self.get_current_microstep_data().delay
+        total_reverb = self.base.reverb + self.get_current_microstep_data().reverb
+        total_sample = self.base.sample + self.get_current_microstep_data().sample
+
         # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
         msg = mido.Message('note_on', note=2)
         note = 2
 
         if self.current_step_state == True and self.number >= 5 : #tracks 5,6,7,8,9 are digital
-            if self.number == 5:
-                msg = mido.Message('note_on', note=60, channel=0)
-                note = 60
-            elif self.number == 6:
-                msg = mido.Message('note_on', note=63, channel=1)
-                note = 63
-            elif self.number == 7:
-                msg = mido.Message('note_on', note=66, channel=2)
-                note = 66
-            elif self.number == 8:
-                msg = mido.Message('note_on', note=69, channel=3)
-                note = 69
-            elif self.number == 9:
-                msg = mido.Message('note_on', note=72, channel=4)
-                note = 72
-            #msg.copy(channel= self.number - 4) #the track number determines the MIDI channel, subtract 4 to make the midi channels 1,2,3,4,5
-            #print("playing note on MIDI Ch. {}".format(self.number -  5) )
-
-            #Having this on a thread isn't terribly ideal, but it's pretty heavily blocking, and this helps bring the project rate up
-            #mt = Process(target=port.send(msg))
-            #mt.start
+            #----PARAM----
+            msg = mido.Message('control_change', control=16, value=total_pan, channel=self.number-5) #Pan is on CC 16
             port.send(msg)
-            ## This stoping thread isn't needed with the current implimentation.
-            #stop = threading.Thread(target=self.kill_step, args=(note,))
-            #stop.start() # yes, I know how dumb this line sounds. It means that the thread that will kill
-                         # the note after .001 seconds should be started.
-        elif self.current_step_state == True and self.number <= 4 : # tracks 0,1,2,3,4 are analog
-            pass #TODO send trigger to pi
-        else:
-            pass
+            # msg = mido.Message('control_change', control=17, value=total_sample_rate, channel=self.number-5) #Sample rate is on CC 17
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=18, value=total_delay, channel=self.number-5) #Delay is on CC 18
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=19, value=total_reverb, channel=self.number-5) #Reverb is on CC 19
+            # port.send(msg)
+            #----SAMPLE----
+            # msg = mido.Message('control_change', control=20, value=total_sample, channel=self.number-5) #Sample BANK selection is on CC 20
+            # port.send(msg)
+            # msg = mido.Message('control_change', control=21, value=total_sample, channel=self.number-5) #Actuall SAMPLE selection is on CC 21
+            # port.send(msg)
+            #-----PLAY-----
+            print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_note, velocity=total_level, channel=self.number-5) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port.send(msg)
+
 
     def kill_step(self,note):
         time.sleep(.009)
@@ -463,6 +598,12 @@ class Pattern:
     def get_active_track(self):
         return self.tracks[self.active_track]
 
+    def change_step_value(self,value_delta,step_num,microstep_num):
+        self.get_active_track().change_step_value(value_delta,step_num,microstep_num)
+
+    def change_base_value(self,value_delta):
+        self.get_active_track().change_base_value(value_delta)
+
     def get_active_track_num(self):
         return self.tracks[self.active_track].get_number()
 
@@ -499,7 +640,13 @@ class Pattern:
         else:
             uh.set_pixel(active_track_led+offset, y-1, 255, 255, 255 )
     
-    def rgb_step_params_display(self,):
+    #Should probably typecheck on None, but making it -1 is easy and works
+    def rgb_step_params_display(self,step,microstep):
+        global skip_RGB_print_count
+        global skip_RGB_print_state
+
+        step_size = 18
+
         active_track = self.get_active_track()
         #This gets the names of each of the parameters for each drum
         params = active_track.base.__dataclass_fields__.keys()        
@@ -512,8 +659,16 @@ class Pattern:
         local_param_list = []
         for val in param_values:
             local_param_list.append(val)
-        # Now, to get this particular step's offsets
-        param_step_values = asdict(active_track.get_current_microstep_data()).values()
+        # Now, to get this particular step's offsets. Default to the active step, but iff step and microstep
+        # are passed in, we need to use those instead
+        if step == -1:
+            param_step_values = asdict(active_track.get_current_microstep_data()).values()
+        else:
+            param_step_values = asdict(active_track.steps[step].get_data(microstep)).values()
+            if skip_RGB_print_state == False:
+                skip_RGB_print_count = 20
+                skip_RGB_print_state = True
+            
         local_step_param_list = []
         for val in param_step_values:
             local_step_param_list.append(val)
@@ -530,37 +685,41 @@ class Pattern:
         
         i = 0
         for x in range(17-num_params,17):
+            next_base_step_off = False
+            next_local_step_off = False
             for y in range(0,7): #TODO, the bar grapgh is going to need better code
                 # all parameters are defined over the range of 0-127
-                if local_param_list[i] > y*16:
-                    base_brightness = 0
-                    if local_param_list[i] > y*16:
-                        # uh.set_pixel(x,abs(6-y),0,0,255)
-                        base_brightness = 255
-                    else:
-                        #Show the value in the diming
-                        dim = local_param_list[i] % ((y+1)*16)
-                        # uh.set_pixel(x,abs(6-y),0,0,dim)    
-                        base_brightness = dim
+                base_brightness = 0
+                if local_param_list[i] > (y+1)*step_size:
+                    base_brightness = 255
                 else:
-                    #uh.set_pixel(x,abs(6-y),0,0,0)
-                    base_brightness = 0
+                    #Show the value in the diming
+                    dim = (local_param_list[i]) % ((y+2)*step_size) 
+                    dim = (dim * (256//step_size))
+                    #This is a very hacky fix because I'm tired of dealing with quantization error
+                    if dim > 1008:
+                        dim += 10
+                    base_brightness = dim%256
+                    if next_base_step_off:
+                        base_brightness = 0
+                    next_base_step_off = True
 
-                if local_step_param_list[i] > y*16:
-                    step_brightness = 0
-                    if local_step_param_list[i] > y*16:
-                        # uh.set_pixel(x,abs(6-y),0,0,255)
-                        step_brightness = 255
-                    else:
-                        #Show the value in the diming
-                        dim = local_step_param_list[i] % ((y+1)*16)
-                        # uh.set_pixel(x,abs(6-y),0,0,dim)    
-                        step_brightness = dim
+                step_brightness = 0
+                if local_step_param_list[i] > (y+1)*step_size:
+                    step_brightness = 255
                 else:
-                    #uh.set_pixel(x,abs(6-y),0,0,0)
-                    step_brightness = 0
+                    #Show the value in the diming
+                    dim = (local_step_param_list[i]) % ((y+2)*step_size) 
+                    dim = (dim * (256//step_size))
+                    #This is a very hacky fix because I'm tired of dealing with quantization error
+                    if dim > 1008:
+                        dim += 10
+                    step_brightness = dim%256
+                    if next_local_step_off:
+                        step_brightness = 0
+                    next_local_step_off = True
                 
-                rgb = step_brightness,0,base_brightness
+                rgb = step_brightness//3,step_brightness//3,base_brightness//3
 
                 uh.set_pixel(x,abs(6-y),*rgb)
             i += 1
@@ -728,6 +887,12 @@ class Song:
         self.get_current_pattern().track_select_display()
     
     def update_display(self):
+        global skip_RGB_print_count
+        global skip_RGB_print_state
+        global skip_print_count
+        global skip_print_state
+        global param_step
+        global param_microstep
         # Clear the screen
         for x in range(0,17):
             for y in range(0,7):
@@ -735,17 +900,32 @@ class Song:
 
         if self.display_mode == 0:
             #self.show_track_name()
-            self.show_bpm()
+            if skip_print_count == 0:
+                self.show_bpm()
+                skip_print_state = False
+            else:
+                skip_print_count = skip_print_count - 1
             self.rgb_step_display()
             self.show_pattern_seq()
             self.track_select_display()
             
         elif self.display_mode == 1:
-            self.show_track_name()
+            #TODO, the BPM doesn't update unless there's a switch back to the other mode and back?
+            if skip_print_count == 0:
+                self.show_bpm()
+                skip_print_state = False
+            else:
+                skip_print_count = skip_print_count - 1
             self.show_patterngrid()
             self.show_pattern_seq()
             self.track_select_display()
-            self.rgb_step_params_display()
+            if skip_RGB_print_count == 0:
+                self.rgb_step_params_display(-1,-1)
+                skip_RGB_print_state = False
+            else:
+                skip_RGB_print_count = skip_RGB_print_count - 1
+                #print("skip print count = {}".format(skip_print_count))
+                self.rgb_step_params_display(param_step,param_microstep)
         # Seriously DO NOT call these any more than necessary, it tanks performance.
         uh.show()
         show()
@@ -753,8 +933,14 @@ class Song:
     def change_display_mode(self,mode):
         self.display_mode = mode
 
-    def rgb_step_params_display(self):
-        self.get_current_pattern().rgb_step_params_display()
+    def rgb_step_params_display(self,step,microstep):
+        self.get_current_pattern().rgb_step_params_display(step,microstep)
+
+    def change_step_value(self,value_delta,step_num,microstep_num):
+        self.get_current_pattern().change_step_value(value_delta,step_num,microstep_num)
+
+    def change_base_value(self,value_delta):
+        self.get_current_pattern().change_base_value(value_delta)
         
 
 #         _       _        _               
@@ -770,6 +956,7 @@ class Jukebox:
     def __init__(self,modules):
         self.active_song = 1
         self.songs = []
+        self.playing = True
         for i in range(16):
             self.songs.append(Song(modules))
             # Attempt to load in all 16 saved songs from pickles
@@ -798,6 +985,9 @@ class Jukebox:
     def flip_lock(self):
         self.songs[self.active_song].flip_pattern_lock()
 
+    def play_pause_toggle(self):
+        self.playing = not self.playing
+
     def is_locked(self):
         return self.songs[self.active_song].pattern_locked
 
@@ -824,13 +1014,19 @@ class Jukebox:
         # changing the song can go into the display mode that song was last
         # set to.
         self.songs[self.active_song].change_display_mode(mode)
+
+    def change_step_value(self,value_delta,step_num,microstep_num):
+        self.get_active_song().change_step_value(value_delta,step_num,microstep_num)
+
+    def change_base_value(self,value_delta):
+        self.get_active_song().change_base_value(value_delta)
         
 #   ____  ____  __   ____  ____  _  _  ____ 
 #  / ___)(_  _)/ _\ (  _ \(_  _)/ )( \(  _ \
 #  \___ \  )( /    \ )   /  )(  ) \/ ( ) __/
 #  (____/ (__)\_/\_/(__\_) (__) \____/(__)  
 
-def showStartup(uh):
+def show_startup(uh):
     write_string('VEGA',kerning=False)
     show()
     time.sleep(.3)
@@ -854,7 +1050,7 @@ def showStartup(uh):
     draw = ImageDraw.Draw(image)
     draw.text((display_width, -1), text, font=font, fill=255)
     offset_x = 0
-
+    # This range value is deteremined experimentally to be just long enough to hide the startup time
     for t in range(120):
         scroll()
         show()
@@ -904,8 +1100,7 @@ def released(name, event):
 def held(name):
     return key_state[name] == 'held'
 
-def handlemicrostep(name):  #this is super ugly, but I can't think of a better way to do it.
-
+def handle_microstep(name):  #this is super ugly, but I can't think of a better way to do it.
     if(name == "f9"):
         microstep_pos = 0
     elif(name == "f10"):
@@ -926,29 +1121,67 @@ def handlemicrostep(name):  #this is super ugly, but I can't think of a better w
             J1.flip_microstep(mapping[key],microstep_pos)
             print("flipped step {}:{}::{}:{} ".format(J1.get_active_pattern,J1.get_active_track(),mapping[key],microstep_pos))
 
-def change_track(name):
-    if(name == "q"):
-        J1.set_active_track(0)
-    elif(name == "w"):
-        J1.set_active_track(1)
-    elif(name == "e"):
-        J1.set_active_track(2)
-    elif(name == "r"):
-        J1.set_active_track(3)
-    elif(name == "t"):
-        J1.set_active_track(4)
+def change_step_param(name):
+    global param_step
+    global param_microstep
+    global param_index
+    #TODO: These need changed when the QMK code get's fixed later
+    if(name == "t"):
+        delta = 1
     elif(name == "y"):
-        J1.set_active_track(5)
-    elif(name == "u"):
-        J1.set_active_track(6)
-    elif(name == "i"):
-        J1.set_active_track(7)
-    elif(name == "o"):
-        J1.set_active_track(8)
-    elif(name == "p"):
-        J1.set_active_track(9)
+        delta = -1
     else:
-        return
+        delta = 0
+
+    step_mapping = {
+        "1":0,"2":1,"3":2,"4":3,"5":4,"6":5,"7":6,"8":7,"f1":8,"f2":9,"f3":10,"f4":11,"f5":12,"f6":13,"f7":14,"f8":15
+    }
+
+    microstep_mapping = {
+        "f9":0,"f10":1,"f11":2,"f12":3
+    }
+
+    # Which step
+    for step_key in step_mapping:
+        if(key_state[step_key] == 'held'):
+            # Which microstep
+            for microstep_key in microstep_mapping:
+                if(key_state[microstep_key] == 'held' ):
+                    param_step = step_mapping[step_key]
+                    param_microstep = microstep_mapping[microstep_key]
+                    #print("Kep pressed, Changing Param of Step {}:{}, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
+                    J1.change_step_value(delta,step_mapping[step_key],microstep_mapping[microstep_key])
+
+def change_base_param(name):
+    global param_index
+    #TODO: These need changed when the QMK code get's fixed later
+    if(name == "z"):
+        delta = 1
+    elif(name == "x"):
+        delta = -1
+    else:
+        delta = 0
+
+    J1.change_base_value(delta)
+
+def change_param_index(name):
+    global param_index
+    if name == "u":
+        param_index += 1
+    elif name == "i":
+        param_index -= 1
+    else:
+        pass
+
+def change_track(name):
+    track_mapping = {
+        "1":0,"2":1,"3":2,"4":3,"5":4,"f1":5,"f2":6,"f3":7,"f4":8,"f5":9
+    }
+    for track_key in track_mapping:
+        if(key_state["q"] == 'held'):
+            if(track_key == name):
+                J1.set_active_track(track_mapping[track_key])
+                print("changed track")
 
 def change_bpm(name):
     global bpm
@@ -983,10 +1216,16 @@ def handler(event: keyboard.KeyboardEvent):
         print('pressed', event.name)
         if(event.name == "l"):
             J1.flip_lock()
-        handlemicrostep(event.name)
+        if(event.name == "space"):
+            print("PLAY/PAUSE TOGGLED")
+            J1.play_pause_toggle()
+        handle_microstep(event.name)
         change_track(event.name)
         change_display_mode(event.name)
         change_bpm(event.name)
+        change_param_index(event.name)
+        change_step_param(event.name)
+        change_base_param(event.name)
 
 
     if released(event.name, event):
@@ -1053,9 +1292,11 @@ if PD_running:
 
 #TODO check and see what analog drums are connected.
 
-#showStartup(uh)
-
 hook = keyboard.hook(handler)
+
+from multiprocessing import Process
+p = Process(target=show_startup, args=(uh,))
+p.start()
 
 #  ::::::::::::.,:::::: .::::::.::::::::::::::::::.    :::.  .,-:::::/  
 #  ;;;;;;;;'''';;;;'''';;;`    `;;;;;;;;'''';;;`;;;;,  `;;;,;;-'````'   
@@ -1112,46 +1353,55 @@ for k in range(10):
 #     
 # This is the beating heart
 
+p.join()
 start_time = time.time()
 correction = 0
 first_run = True
 
 while True:
-    #TODO make BPM offset time update per step.
-    #This *might* not work due to the very low sleep values
-    #but it's worth trying.
-    #If nothing else, it should probably be every 8 microsteps or so.
-    current_time = time.time()
-    elapsed = current_time - start_time
-    print("Last loop took {} seconds".format(elapsed))
-    actual_bpm = (1/(elapsed/16))*60
-    if(first_run): # We need to ignore the first garbage run
-        actual_bpm = bpm
-        first_run = False
-    print("That is {} BPM".format(actual_bpm))
-    start_time = time.time()
-    # Timing correction. This may take a while to converge
-    # Changing the porportional value here may help improve convergence time,
-    # At the cost of overshoot/settling time
-    if(actual_bpm < bpm): #if to slow, we need to speed up
-        print("bpm to slow, correcting by {}".format(correction))
-        correction += .0006 * abs(bpm-actual_bpm)
+    if J1.playing == True:
+        #TODO make BPM offset time update per step.
+        #This *might* not work due to the very low sleep values
+        #but it's worth trying.
+        #If nothing else, it should probably be every 8 microsteps or so.
+        current_time = time.time()
+        elapsed = current_time - start_time
+        #print("Last loop took {} seconds".format(elapsed))
+        actual_bpm = (1/(elapsed/16))*60
+        if(first_run): # We need to ignore the first garbage run
+            actual_bpm = bpm
+            first_run = False
+        #print("That is {} BPM".format(actual_bpm))
+        start_time = time.time()
+        # Timing correction. This may take a while to converge
+        # Changing the porportional value here may help improve convergence time,
+        # At the cost of overshoot/settling time
+        if(actual_bpm < bpm): #if to slow, we need to speed up
+            #print("bpm to slow, correcting by {}".format(correction))
+            correction += .0006 * abs(bpm-actual_bpm)
+        else:
+            #print("bpm to fast, correcting by {}".format(correction))
+            correction -= .0006 * abs(bpm-actual_bpm)
+
+        for i in range(64):
+            sleepy_time = 60/(bpm*4) # This needs to be a responsive control, hence it being placed in here
+            sleepy_time -= (.01+correction) 
+            #time.sleep is in SECONDS not milliseconds
+            time.sleep(sleepy_time) # roughly 120bpm
+
+            J1.advance_step()
+            J1.update_display()
+            #If pause is hit, we need to stop immediately, but the outside stuff needs captured
+            #too. This is probably bad to check it twice like this, but ╮(─▽─)╭
+            if J1.playing == False:
+                break
+
+            if(J1.is_locked()==False and i == 63):
+                print("Pattern Incremented")
+                J1.inc_pattern()
     else:
-        print("bpm to fast, correcting by {}".format(correction))
-        correction -= .0006 * abs(bpm-actual_bpm)
-
-    for i in range(64):
-        sleepy_time = 60/(bpm*4) # This needs to be a responsive control, hence it being placed in here
-        sleepy_time -= (.01+correction) 
-        #time.sleep is in SECONDS not milliseconds
-        time.sleep(sleepy_time) # roughly 120bpm
-
-        J1.advance_step()
+        first_run = True
+        time.sleep(.05)
         J1.update_display()
-    if(J1.is_locked()==False):
-        print("Pattern Incremented")
-        J1.inc_pattern()
-    else:
-        print("Pattern Held")
     #print("pattern at addr: {}".format(J1.get_active_pattern()))
 
