@@ -1,3 +1,4 @@
 (sym_lib_table
   (lib (name rp2040)(type Legacy)(uri /Users/mark/prj/working/micros/arm/RP2040/rev1/rp2040.lib)(options "")(descr ""))
+  (lib (name rev1-rescue)(type Legacy)(uri ${KIPRJMOD}/rev1-rescue.lib)(options "")(descr ""))
 )
