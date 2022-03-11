@@ -189,8 +189,8 @@ class DrumData:
 class DigitalDrumData(DrumData):
     note: int
     pan: int
-    sample_rate: int
     delay: int
+    dtime: int
     reverb: int
     #Sample is stored as int, but used really weird,
     # as it's actually a bank, so sample the first 
@@ -524,7 +524,7 @@ class DigitalDrum(Drum):
         total_level = self.base.level + self.get_current_microstep_data().level
         total_note = self.base.note + self.get_current_microstep_data().note
         total_pan = self.base.pan + self.get_current_microstep_data().pan
-        total_sample_rate = self.base.sample_rate + self.get_current_microstep_data().sample_rate
+        total_dtime = self.base.dtime + self.get_current_microstep_data().dtime
         total_delay = self.base.delay + self.get_current_microstep_data().delay
         total_reverb = self.base.reverb + self.get_current_microstep_data().reverb
         total_sample = self.base.sample + self.get_current_microstep_data().sample
@@ -537,17 +537,15 @@ class DigitalDrum(Drum):
             #----PARAM----
             msg = mido.Message('control_change', control=16, value=total_pan, channel=self.number-5) #Pan is on CC 16
             port.send(msg)
-            # msg = mido.Message('control_change', control=17, value=total_sample_rate, channel=self.number-5) #Sample rate is on CC 17
-            # port.send(msg)
-            # msg = mido.Message('control_change', control=18, value=total_delay, channel=self.number-5) #Delay is on CC 18
-            # port.send(msg)
-            # msg = mido.Message('control_change', control=19, value=total_reverb, channel=self.number-5) #Reverb is on CC 19
-            # port.send(msg)
+            msg = mido.Message('control_change', control=17, value=total_delay, channel=self.number-5) #Delay Mix is on CC 17
+            port.send(msg)
+            msg = mido.Message('control_change', control=18, value=total_dtime, channel=self.number-5) #Delay Time is on CC 18
+            port.send(msg)
+            msg = mido.Message('control_change', control=19, value=total_reverb, channel=self.number-5) #Reverb is on CC 19
+            port.send(msg)
             #----SAMPLE----
-            # msg = mido.Message('control_change', control=20, value=total_sample, channel=self.number-5) #Sample BANK selection is on CC 20
-            # port.send(msg)
-            # msg = mido.Message('control_change', control=21, value=total_sample, channel=self.number-5) #Actuall SAMPLE selection is on CC 21
-            # port.send(msg)
+            msg = mido.Message('control_change', control=20, value=total_sample%29, channel=self.number-5) #Sample BANK selection is on CC 20 TODO: Mod29 here only because sample banks are not yet full
+            port.send(msg)
             #-----PLAY-----
             print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
             msg = mido.Message('note_on', note=total_note, velocity=total_level, channel=self.number-5) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
@@ -639,7 +637,45 @@ class Pattern:
             uh.set_pixel(active_track_led+offset, y, 255, 255, 255)
         else:
             uh.set_pixel(active_track_led+offset, y-1, 255, 255, 255 )
-    
+
+    def rgb_sample_select_display(self,step,microstep):
+        base = self.get_active_track().base.sample
+        base_bank = base//9
+        base_sample = ((base-(base_bank*9))%9)+1
+        if step == -1:
+            offset = self.get_active_track().get_current_microstep_data().sample
+        else:
+            offset = self.get_active_track().steps[step].get_data(microstep).sample
+        offset_bank = base_bank + offset//9
+        offset_sample = base_sample + ((offset-(offset_bank*9))%9)
+        y = 0
+        print(f"BASE:{base}::base_bank:{base_bank};base_sample:{base_sample} -- OFFSET:{offset}::offset_bank:{offset_bank};offset_sample:{offset_sample}")
+        for x in range(0,3):
+            if x == base_bank:
+                base_brightness = 255
+            else:
+                base_brightness = 0
+            if x == offset_bank:
+                offset_brightness = 255
+            else:
+                offset_brightness = 0
+            uh.set_pixel(x+5,y,10,base_brightness,offset_brightness)
+
+        led_num = 0
+        for x in range(0,3):
+            for y in range(1,4):
+                led_num += 1
+                if led_num == base_sample:
+                    base_brightness = 255
+                else:
+                    base_brightness = 0
+                if led_num == offset_sample:
+                    offset_brightness = 255
+                else:
+                    offset_brightness = 0
+                uh.set_pixel(x+5,y,base_brightness,10,offset_brightness)
+                
+        pass
     #Should probably typecheck on None, but making it -1 is easy and works
     def rgb_step_params_display(self,step,microstep):
         global skip_RGB_print_count
@@ -677,6 +713,9 @@ class Pattern:
             num_params = num_params - 1
             local_param_list.pop()
             local_step_param_list.pop()
+
+        if "sample" in params:
+            self.rgb_sample_select_display(step,microstep)
         
         #add the base value to the offset value, for showing on the display
         for i in range(0,num_params):
