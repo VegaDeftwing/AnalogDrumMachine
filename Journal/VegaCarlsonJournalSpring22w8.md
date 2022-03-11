@@ -251,3 +251,135 @@ Finally finished up the refactor and now each microstep hold data about each dru
 ---
 
 **Week ending 2/18 = **8.0 hours, **total** = 36.2 hours
+
+# Vega Carlson - Group 165 - Spring '22, Week 6
+
+## Saturday, Feb 19th -- W0.0 T:36.2
+
+**0.0 hr** -- No Progress today
+
+## Sunday, Feb 20th -- W:0.0 T:36.2
+
+**0.0hrs** -- No Progress today
+
+## Monday, Feb 21st -- W:1.3 T:37.5
+
+**1.3hrs** -- Worked with Reid in the lab debugging the FM drum and spent a fair amount of time talking with Cole about organizational stuff.
+
+## Tuesday, Feb 22th -- W:4.3 T:40.5
+
+**2.0hrs** -- Did significant work on the display code, getting the user interface further along
+
+**1.0hrs** -- Finished up the code for the per-microstep value display on the RGB matrix. I have yet to actually make it possible to change microstep values live or test them being sent to even the digital drums as CC's, but I have no reason to think it won't work. I'm a bit worried about how to cleanly handle limiting values, but I'll figure something out.
+
+## Wednesday, Feb 23rd -- W:4.8 T:41.0
+
+**0.5hr** - Meeting. See minutes.
+
+## Thursday, Feb 24th -- W:4.8 T:41.0
+
+**0.0hrs** -- No Progress today
+
+## Friday, Feb 25th -- W:8.0 T:44.2
+
+**0.5hr** - Meeting. See minutes.
+
+**0.7hr** - Worked with Kaleb in the lab on the filter
+
+**2.0hr** - Next thing up on the code is make it so I can set both the base and per-step-offset values from the keyboards and update the display. This is a non-trival problem and requires python that's a bit outside my comfort zone, at least to write generically, using `getattr` and `setattr`. In this two hours I managed to get the code written that allows for changing the base values, checking all the steps offset values, and for checking an individual step's offset values and that should work regardless of the datatype. The code isn't fully tested, so next time I need to actually propogate the setters and getters down to make it able to be caled by the keyboard and make sure it does get reflected in the UI, then I should finally be able to write the playback function that uses the values.
+
+
+
+---
+
+**Week ending 2/25 = **8.0 hours, **total** = 44.2Vega Carlson - Group 165 - Spring '22, Week 6
+
+# Vega Carlson - Group 165 - Spring '22, Week 7
+
+## Saturday, Feb 26th -- W0.0 T:44.2
+
+**0.0 hr** -- No Progress today
+
+## Sunday, Feb 27th -- W:3.1 T:47.3
+
+**1.3hr** -- Continued working on microstep value UI code. Pressing and holding buttons for a step and microstep can now be used to edit a per-step value, and it is reflected on the LEDs., Made it so that the name of the value being edited is shown on the character display
+
+**0.3hr** -- Got the display to hold the step display on the value current being edited
+
+**1.5hr** -- Why is it sometimes a simple line of code can take way longer than it should? I needed to fix the display code so that the steps actually transistion smoothly. I got it, but that took much longer than it should have.
+
+## Monday, Feb 28th -- W:3.1 T:47.3
+
+**0.0hr** -- No Progress today
+
+## Tuesday, Mar 1st -- W:4.8 T:49.0
+
+**1.7** -- To start, I made it so that track selection is done using the same buttons as the steps. This is because I'm running out of keys, and it will be that way on the final keyboard anyway
+
+Next, there was a bug where the last edited parameter name didn't go away to show the BPM again. I *mostly* fixed it. It's not perfect, but It's good enough and I don't want to put more time into chasing it.
+
+Next, I needed to make it possible to pick which value is actually being changed by the knob. This has been hardcoded until now.
+
+*Finally*, I added the necessary code the digital drum `play_step()` function to actually test this out. It's *almost* working. Currently changing the value for any microstep in a group of 4 changes them all, but it does work, and I can hear the changes.
+
+## Wednesday, Mar 2nd -- W:6.6 T:50.8
+
+**.3hr** -- Work with Reid in lab on PCB
+
+**0.5hr** -- Meeting. See minutes.
+
+**1.0hr** -- Trying to find where the changing a microstep changes all mircosteps in that step bug is... This is proving to be really hard to trace down. I know the problem - I can confirm it by looking at memory addresses - I just can't figure out *why* it's a problem.
+
+Oh. My. God. I figured it out, Python wasn't making copies of the data objects being passed to each microstep, meaning each microstep's data was actually the same memory. one `copy.copy()` later and Startup time is now awful, but it works.
+
+## Thursday, Mar 3rd  -- W:7.6 T:51.8
+
+**0.0hr** -- No Progress today
+
+**1.0hr**-- Made it so that the base values (that micro step offset values act on) can be set as well. These base values are   set per pattern though. Also added printing to the screen to indicate that values have been clamped, and improved the logic for the display a bit. I also quickly made it so the high start up time get's covered up by a pretty start up animation that I made back when first getting things tested.
+
+## Friday, Mar 4th -- W:8.1 T:52.3
+
+**0.5hr** - Meeting. See minutes.
+
+---
+
+**Week ending 3/04 = **8.1 hours, **total** = 52.3
+
+# Vega Carlson - Group 165 - Spring '22, Week 8
+
+## Saturday, Mar 5th -- W2.1 T:54.4
+
+**2.1 hr** -- Quickly made a PCB for a clone of the "Green Ringer" effect pedal to act as one of the effects.
+
+## Sunday, Mar 6th -- W:4.3 T:56.6
+
+**2.2hr** -- Watched two videos as outside lectures.
+
+## Monday, Mar 7th -- W:4.3 T:56.6
+
+**0.0hr** -- No Progress today, but was in lab with Reid while he did some keyboard work, some idle conversation about the project
+
+## Tuesday, Mar 8th -- W:4.3 T:56.6
+
+**0.0hr** -- No Progress today
+
+## Wednesday, Mar 9th -- W:4.9 T:57.2
+
+**0.1hr** -- Talked with cole about the PT2399 effect and options for getting it done quickly
+
+**0.5hr** -- Meeting. See minutes.
+
+## Thursday, Mar 10th  -- W:6.7 T:59.0
+
+**1.8hr** - Working in Pure Data to get all the sample drum parameters working. Things are *mostly* working. I need to add the sample UI and then come back and tweak things so that the values make sense.
+
+## Friday, Mar 11th -- W:8.3 T:60.6
+
+**0.5hr** - Meeting. See minutes.
+
+**1.1hr**- Added in the sample selection UI, as currently the lack of that is making debugging difficult. Currently, now that the selection UI works the Purr Data patch will need some minor updates for them both to agree on values; however, it does work - samples can be changed and locked per step already.
+
+---
+
+**Week ending 3/04 = **8.3 hours, **total** = 60.6
