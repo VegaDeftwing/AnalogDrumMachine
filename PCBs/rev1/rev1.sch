@@ -14,7 +14,7 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 $Comp
-L rp2040:RP2040 U1
+L rev1-rescue:RP2040-rp2040 U1
 U 1 1 6168B28C
 P 4800 2250
 F 0 "U1" H 6000 2637 60  0000 C CNN
@@ -25,7 +25,7 @@ F 3 "" H 4800 2250 60  0000 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L Connector:USB_B_Micro J1
+L rev1-rescue:USB_B_Micro-Connector J1
 U 1 1 6168F78C
 P 1350 6550
 F 0 "J1" H 1407 7017 50  0000 C CNN
