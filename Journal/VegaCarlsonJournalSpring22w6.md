@@ -251,3 +251,45 @@ Finally finished up the refactor and now each microstep hold data about each dru
 ---
 
 **Week ending 2/18 = **8.0 hours, **total** = 36.2 hours
+
+# Vega Carlson - Group 165 - Spring '22, Week 6
+
+## Saturday, Feb 19th -- W0.0 T:36.2
+
+**0.0 hr** -- No Progress today
+
+## Sunday, Feb 20th -- W:0.0 T:36.2
+
+**0.0hrs** -- No Progress today
+
+## Monday, Feb 21st -- W:1.3 T:37.5
+
+**1.3hrs** -- Worked with Reid in the lab debugging the FM drum and spent a fair amount of time talking with Cole about organizational stuff.
+
+## Tuesday, Feb 22th -- W:4.3 T:40.5
+
+**2.0hrs** -- Did significant work on the display code, getting the user interface further along
+
+**1.0hrs** -- Finished up the code for the per-microstep value display on the RGB matrix. I have yet to actually make it possible to change microstep values live or test them being sent to even the digital drums as CC's, but I have no reason to think it won't work. I'm a bit worried about how to cleanly handle limiting values, but I'll figure something out.
+
+## Wednesday, Feb 23rd -- W:4.8 T:41.0
+
+**0.5hr** - Meeting. See minutes.
+
+## Thursday, Feb 24th -- W:4.8 T:41.0
+
+**0.0hrs** -- No Progress today
+
+## Friday, Feb 25th -- W:8.0 T:44.2
+
+**0.5hr** - Meeting. See minutes.
+
+**0.7hr** - Worked with Kaleb in the lab on the filter
+
+**2.0hr** - Next thing up on the code is make it so I can set both the base and per-step-offset values from the keyboards and update the display. This is a non-trival problem and requires python that's a bit outside my comfort zone, at least to write generically, using `getattr` and `setattr`. In this two hours I managed to get the code written that allows for changing the base values, checking all the steps offset values, and for checking an individual step's offset values and that should work regardless of the datatype. The code isn't fully tested, so next time I need to actually propogate the setters and getters down to make it able to be caled by the keyboard and make sure it does get reflected in the UI, then I should finally be able to write the playback function that uses the values.
+
+
+
+---
+
+**Week ending 2/25 = **8.0 hours, **total** = 44.2
