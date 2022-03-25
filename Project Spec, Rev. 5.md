@@ -18,7 +18,7 @@ The analog drums can output to one of three effect busses: A, B, or NoEffect. Th
 
 The output from the three effect busses and the pi running the digital drums is then mixed and sent though an **analog low pass filter** with adjustable cutoff and resonance, before finally going through a potentiometer to adjust the level and being output through a stereo 3.5mm jack.
 
-![specrev5](AnalogDrumMachine/Images/specrev5.png)
+![specrev5](./Images/specrev5.png)
 
 ## The Analog Drums
 
@@ -52,7 +52,7 @@ The FM Drum and Drone modules are based on the infamous "Atari Punk Console" cir
 
 The digital drums, as previously mentioned, are all played back via the Purr-Data visual programming environment. In Purr-Data a bank of drum samples is selected from per each channel, effects are applied to each drum, and the all the digital drum outputs are mixed. A work in progress of this Purr-Data "patch" is shown below:
 
-<img src="AnalogDrumMachine/Images/image-20211118193938605.png" alt="image-20211118193938605" style="zoom:33%;" />
+<img src="./Images/image-20211118193938605.png" alt="image-20211118193938605" style="zoom:33%;" />
 
 
 
@@ -76,11 +76,11 @@ Repeating the same 16 (or 64, depending on how you look at it) step sequence on 
 
  For example, if pattern one is currently playing, and the last step is reached and the next pattern is "Right" then it would move to pattern 2. Then, if at the last step of pattern 2 the next step is to move "up" it would wrap around and play pattern 14. This necessitates 5 pattern instructions, repeat, up, down, left, and right. It's these instructions which are sequenced, not which pattern is played. Even a short sequence of only `up, right` starting at 1 would go `1->13->14->10->11->7->8->4->` before repeating. This allows for complex, seemingly generative song structures to emerge. Because not many steps are required to make a complex pattern, the pattern sequence is limited to 8 instructions. The pattern sequence can also be locked to the current pattern, necessary for looping a given pattern while entering its steps. An animated gif showing this process is below (static in the .PDF copy of this document)
 
-![1](AnalogDrumMachine/Images/1.gif)
+![1](./Images/1.gif)
 
 ### User Interface
 
-![specrev5-2](AnalogDrumMachine/Images/specrev5-2.png)
+![specrev5-2](./Images/specrev5-2.png)
 
 ## The Effects
 
@@ -100,17 +100,17 @@ The control board consists of an RP2040 microcontroller to recieve information a
 
 ### Mixer
 
-![Mixer](AnalogDrumMachine/Images/Mixer.png)
+![Mixer](./Images/Mixer.png)
 
 ## The Displays & Keyboard
 
 The choice of displays may initally seem odd: working with two different LED matricies instead of just using a screen is counter-inutitive; however, there are multiple benefits. First, Vega was willing to pay for it; Second, they're bright and in a live use environment would be easy to see; and third, a good portion of the reason to buy physical music equipment is because the user doesn't want to look at a normal screen.
 
-<img src="AnalogDrumMachine/Images/image-20211024155643007.png" alt="image-20211024155643007" style="zoom:35%;" />
+<img src="./Images/image-20211024155643007.png" alt="image-20211024155643007" style="zoom:35%;" />
 
 The choice in keyboards was mostly out of necessitity. The BDN9 macropad with it's two encoders and 7 buttons is realative inexpensive and avoided the need to design yet another board. Meanwhile, the choice to handwire a 3x10 keyboard was done because there was nothing that small that offered the required individually addressable LEDs for showing the current state of the steps.
 
-<img src="AnalogDrumMachine/Images/image-20211029162305756transp.png" alt="image-20211029162305756transp" style="zoom:25%;" /><img src="AnalogDrumMachine/Images/image-20211103004641699trans.png" alt="image-20211103004641699trans" style="zoom:15%;" />
+<img src="./Images/image-20211029162305756transp.png" alt="image-20211029162305756transp" style="zoom:25%;" /><img src="./Images/image-20211103004641699trans.png" alt="image-20211103004641699trans" style="zoom:15%;" />
 
 ## Power Supply
 
@@ -120,7 +120,7 @@ Power is supplied by a Meanwell RT65b, which provides ample current and the nece
 
 Until all of the PCBs are designed and tested, it's a bit difficult to design the final enclosure with rigid limits on dimensions. The current intention is to make a very simple, shallow, rectangular box out of thin acrylic or plywood and cut out module panels and holes for the keyboard as necessary. The modules themselves will need a small 'lip' of some sort to rest on while inserted and something to hold them down. The current idea is to just use fly-nuts to bolt them down; however, this may change.
 
-<img src="../../../../../home/vega/.config/Typora/typora-user-images/image-20220203153608656.png" alt="image-20220203153608656" style="zoom:20%;" />
+<img src="./Images/image-20220203153608656.png" alt="image-20220203153608656" style="zoom:20%;" />
 
 
 
