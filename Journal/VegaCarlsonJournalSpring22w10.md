@@ -449,7 +449,7 @@ Oh. My. God. I figured it out, Python wasn't making copies of the data objects b
 
 **0.5hr** - Helped Kaleb get KiCad (and some other things) working well on his laptop, as some things were horribly slow.
 
-2:55 - Starting by fixing the panning parameter of the digital drums in Purr Data. Next I'
+2:55 - Starting by fixing the panning parameter of the digital drums in Purr Data. I then tried to make it so step parameters colud be changed without actually flipping the step state. This is not going to easily fit into this code as it's steup, and realistically the current setup is fine as is, albeit slightly annoying as it means per-step values should really be entered when the step is first toggled on. Next onto pattern sequencing and manual control
 
 ---
 
