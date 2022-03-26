@@ -1,6 +1,6 @@
 {
   "board": {
-    "active_layer": 0,
+    "active_layer": 38,
     "active_layer_preset": "",
     "auto_track_width": true,
     "hidden_nets": [],
@@ -33,8 +33,6 @@
       3,
       4,
       5,
-      6,
-      7,
       8,
       9,
       10,
@@ -64,11 +62,11 @@
       35,
       36
     ],
-    "visible_layers": "001dc30_80000001",
+    "visible_layers": "ffdffff_ffffffff",
     "zone_display_mode": 0
   },
   "meta": {
-    "filename": "rev1.kicad_prl",
+    "filename": "GreenRinger.kicad_prl",
     "version": 3
   },
   "project": {
