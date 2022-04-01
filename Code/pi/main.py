@@ -79,6 +79,10 @@ skip_RGB_print_state = False
 param_step = 0
 param_microstep = 0
 param_index = 0
+pattern_seq_step_loop = 0
+temp_steps = None
+copy_type = None
+bpm_recently_updated = False
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------
 # Small helper FNs
@@ -346,8 +350,9 @@ class Drum:
         global skip_print_count
         global skip_print_state
         global param_index
-        if value_delta == 0:
-            return
+        global bpm_recently_updated
+        # if value_delta == 0:
+        #     return
 
         if skip_print_state == False:
             skip_print_count = 20
@@ -369,9 +374,10 @@ class Drum:
                     write_string(str(key)+"+",kerning=False)
                 elif value_delta < 0:
                     write_string(str(key)+"-",kerning=False)
+                elif (value_delta == 0) and (bpm_recently_updated == False):
+                    write_string(str(key),kerning=False)
                 else:
-                    print("check_value is {}, value_delta is {}".format(check_value,value_delta))
-                    write_string("?????",kerning=False)
+                    bpm_recently_updated = False
                 setattr(self.base,key,new_value)
             i += 1
         # check the new base values don't create bad offsets
@@ -505,7 +511,7 @@ class DroneDrumModule(AnalogDrum):
 
 class DigitalDrum(Drum):
     def __init__(self,name, active, number):
-        self.base = DigitalDrumData(100,64,64,127,0,0,0)
+        self.base = DigitalDrumData(100,64,64,0,32,0,0)
         super().__init__(name, active, number)
         for i in range(16): #16 steps per track
             self.steps.append(Step(DigitalDrumData(0,0,0,0,0,0,0)))
@@ -522,11 +528,11 @@ class DigitalDrum(Drum):
 
     def play_step(self):
         total_level = self.base.level + self.get_current_microstep_data().level
-        total_note = self.base.note + self.get_current_microstep_data().note
+        total_note = 127 - (self.base.note + self.get_current_microstep_data().note)
         total_pan = self.base.pan + self.get_current_microstep_data().pan
         total_dtime = self.base.dtime + self.get_current_microstep_data().dtime
         total_delay = self.base.delay + self.get_current_microstep_data().delay
-        total_reverb = self.base.reverb + self.get_current_microstep_data().reverb
+        total_reverb = 127 - (self.base.reverb + self.get_current_microstep_data().reverb)
         total_sample = self.base.sample + self.get_current_microstep_data().sample
 
         # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
@@ -547,7 +553,7 @@ class DigitalDrum(Drum):
             msg = mido.Message('control_change', control=20, value=total_sample%29, channel=self.number-5) #Sample BANK selection is on CC 20 TODO: Mod29 here only because sample banks are not yet full
             port.send(msg)
             #-----PLAY-----
-            print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
             msg = mido.Message('note_on', note=total_note, velocity=total_level, channel=self.number-5) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
             port.send(msg)
 
@@ -649,7 +655,7 @@ class Pattern:
         offset_bank = base_bank + offset//9
         offset_sample = base_sample + ((offset-(offset_bank*9))%9)
         y = 0
-        print(f"BASE:{base}::base_bank:{base_bank};base_sample:{base_sample} -- OFFSET:{offset}::offset_bank:{offset_bank};offset_sample:{offset_sample}")
+        #print(f"BASE:{base}::base_bank:{base_bank};base_sample:{base_sample} -- OFFSET:{offset}::offset_bank:{offset_bank};offset_sample:{offset_sample}")
         for x in range(0,3):
             if x == base_bank:
                 base_brightness = 255
@@ -778,7 +784,7 @@ class Song:
         for i in range(4):
             for j in range(4):
                 self.patterns[i].append(Pattern(4*i+j,modules))
-                self.pattern_seq = []
+        self.pattern_seq = []
         self.pattern = []
         self.pattern_seq_len = 7 #keep in mind this is 0 indexed!
         self.current_pattern = 0
@@ -844,6 +850,37 @@ class Song:
             else:
                 self.current_pattern_seq_step = 0
 
+    def force_pattern_left(self):
+        if self.current_pattern in {0,4,8,12}:
+            self.current_pattern = (self.current_pattern + 3)
+        else:
+            self.current_pattern = (self.current_pattern - 1)
+
+    def force_pattern_right(self):
+        if self.current_pattern in {3,7,11,15}:
+            self.current_pattern = (self.current_pattern - 3)
+        else:
+            self.current_pattern = (self.current_pattern + 1)
+
+    def force_pattern_up(self):
+        self.current_pattern = (self.current_pattern - 4)%16
+
+    def force_pattern_down(self):
+        self.current_pattern = (self.current_pattern + 4)%16
+
+    def force_pattern(self,direction):
+        if direction == "up":
+            self.force_pattern_up()
+        elif direction == "down":
+            self.force_pattern_down()
+        elif direction == "left":
+            self.force_pattern_left()
+        elif direction == "right":
+            self.force_pattern_right()
+        else:
+            print("Invalid force direction!")
+        
+
     def show_pattern_seq(self):
         #TODO make current step brighter
         for i in range(8):
@@ -906,6 +943,15 @@ class Song:
 
                 uh.set_pixel(x, y, *rgb)
         #uh.show()
+
+    def enter_patternseq_step(self,direction):
+        global pattern_seq_step_loop
+        # if w is held, each keypress set's the next pattern step, looping. The w checking happens in the key handler.
+        if pattern_seq_step_loop > self.pattern_seq_len:
+            pattern_seq_step_loop = 0
+        self.pattern_seq[pattern_seq_step_loop] = direction
+        pattern_seq_step_loop += 1
+
 
     def show_bpm(self):
         global bpm
@@ -999,18 +1045,22 @@ class Jukebox:
         for i in range(16):
             self.songs.append(Song(modules))
             # Attempt to load in all 16 saved songs from pickles
-            #self.songs[i] = filecheck("songs/s{}.p".format(i))
+            self.songs[i] = file_check("songs/s{}.p".format(i))
 
     def get_active_song(self):
         return self.songs[self.active_song]
    
     def save_song(self,song_num):
-        #pickle.dump( self.songs[song_num], open( "songs/s{}.p".format(song_num), "wb" ) )
+        pickle.dump( self.songs[song_num], open( "songs/s{}.p".format(song_num), "wb" ) )
         pass
     
     def save_all_songs(self):
         for i in range(16):
             self.save_song(i)
+
+    def restore_all_songs(self):
+        for i in range(16):
+            self.songs[i] = file_check("songs/s{}.p".format(i))
 
     def get_song(self, song_num):
         return self.songs[song_num]
@@ -1059,6 +1109,12 @@ class Jukebox:
 
     def change_base_value(self,value_delta):
         self.get_active_song().change_base_value(value_delta)
+
+    def force_pattern(self,direction):
+        self.get_active_song().force_pattern(direction)
+
+    def enter_patternseq_step(self,direction):
+        self.get_active_song().enter_patternseq_step(direction)
         
 #   ____  ____  __   ____  ____  _  _  ____ 
 #  / ___)(_  _)/ _\ (  _ \(_  _)/ )( \(  _ \
@@ -1140,6 +1196,9 @@ def held(name):
     return key_state[name] == 'held'
 
 def handle_microstep(name):  #this is super ugly, but I can't think of a better way to do it.
+    # if (released(name,event)):
+    #     return
+    
     if(name == "f9"):
         microstep_pos = 0
     elif(name == "f10"):
@@ -1165,9 +1224,9 @@ def change_step_param(name):
     global param_microstep
     global param_index
     #TODO: These need changed when the QMK code get's fixed later
-    if(name == "t"):
+    if(name == "g"):
         delta = 1
-    elif(name == "y"):
+    elif(name == "h"):
         delta = -1
     else:
         delta = 0
@@ -1191,12 +1250,12 @@ def change_step_param(name):
                     #print("Kep pressed, Changing Param of Step {}:{}, Delta of {}".format(step_mapping[step_key],microstep_mapping[microstep_key],delta))
                     J1.change_step_value(delta,step_mapping[step_key],microstep_mapping[microstep_key])
 
+
 def change_base_param(name):
     global param_index
-    #TODO: These need changed when the QMK code get's fixed later
-    if(name == "z"):
+    if(name == "t"):
         delta = 1
-    elif(name == "x"):
+    elif(name == "y"):
         delta = -1
     else:
         delta = 0
@@ -1224,15 +1283,22 @@ def change_track(name):
 
 def change_bpm(name):
     global bpm
-    if(name == "h"): #LEFT, this is currently backwards, as the QMK config is backwards
+    global bpm_recently_updated
+    if(name == "j"):
         bpm = int(bpm+2)
         if bpm <= 0:
             bpm = 0
         else:
             print("BPM decremented")
-    elif(name == "g"): #RIGHT
+        write_string(str(bpm),kerning=False)
+        bpm_recently_updated = True
+        show()
+    elif(name == "k"):
         bpm = int(bpm-2)
         print("BPM incremented")
+        write_string(str(bpm),kerning=False)
+        bpm_recently_updated = True
+        show()
 
 def change_display_mode(name):
     if(name == "d"):
@@ -1240,6 +1306,82 @@ def change_display_mode(name):
         current_display_mode = (current_display_mode + 1)%2
         J1.change_display_mode(current_display_mode)
         print("Display Mode Changed")
+
+def pattern_handler(name):
+    if name in ["up","down","left","right","r"]:
+        if key_state["w"] == 'held':
+            if name == 'r':
+                direction = "stay"
+            else:
+                direction = name
+            J1.enter_patternseq_step(direction)
+        else:
+            if name != "r": #only for pattern seq
+                J1.force_pattern(name)
+
+def save_all_songs(name):
+    if name == "s":
+        previous_state = J1.playing
+        J1.playing = False
+        write_string("Saving",kerning=False)
+        J1.save_all_songs()
+        J1.playing = previous_state
+
+def restore_all_songs(name):
+    if name == "z":
+        previous_state = J1.playing
+        J1.playing = False
+        write_string("Restor",kerning=False)
+        J1.restore_all_songs()
+        J1.playing = previous_state
+
+def change_song(name):
+    # Use same mapping as for sequencer
+    mapping = { "1":0,"2":1,"3":2,"4":3,"5":4,"6":5,"7":6,"8":7,"f1":8,"f2":9,"f3":10,"f4":11,"f5":12,"f6":13,"f7":14,"f8":15 }
+    for key in mapping:
+        if(key_state["a"] == 'held'):
+            if(key == name):
+                previous_state = J1.playing
+                J1.playing = False
+                print(f"changing song to {mapping[key]}")
+                write_string(f"Song{mapping[key]}",kerning=False)
+                J1.change_song(mapping[key])
+                J1.playing = previous_state
+
+def copy_paste_track_steps(name):
+    global temp_steps
+    global copy_type
+    if name == "c" or name == "v" or name == "b":
+        if name == "c":
+            print("Copied Track")
+            write_string("COPY!",kerning=False)
+            temp_steps = copy.deepcopy(J1.get_active_track().steps)
+            copy_type = type(J1.get_active_track())
+        if name == "b":
+            print("Copied Track")
+            write_string("~COPY!",kerning=False)
+            temp_steps = J1.get_active_track().steps
+            copy_type = type(J1.get_active_track())
+        if name == "v":
+            if temp_steps == None:
+                write_string("ERR:",kerning=False)
+                time.sleep(0.3)
+                write_string("no buf",kerning=False)
+                time.sleep(0.3)
+                return
+            if type(J1.get_active_track()) != copy_type:
+                write_string("ERR:",kerning=False)
+                time.sleep(0.3)
+                write_string("wrong",kerning=False)
+                time.sleep(0.3)
+                write_string("type!",kerning=False)
+                time.sleep(0.3)
+                print(f"active track:{type(J1.get_active_track())} != {copy_type}")
+                return
+            print("Pasting Track")
+            write_string("PASTE!",kerning=False)
+            J1.get_active_track().steps = temp_steps
+
 
 
 def handler(event: keyboard.KeyboardEvent):
@@ -1258,13 +1400,18 @@ def handler(event: keyboard.KeyboardEvent):
         if(event.name == "space"):
             print("PLAY/PAUSE TOGGLED")
             J1.play_pause_toggle()
-        handle_microstep(event.name)
         change_track(event.name)
         change_display_mode(event.name)
         change_bpm(event.name)
         change_param_index(event.name)
-        change_step_param(event.name)
+        change_step_param(event.name) 
         change_base_param(event.name)
+        handle_microstep(event.name)
+        pattern_handler(event.name)
+        save_all_songs(event.name)
+        restore_all_songs(event.name)
+        change_song(event.name)
+        copy_paste_track_steps(event.name)
 
 
     if released(event.name, event):
