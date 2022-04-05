@@ -1,3 +1,5 @@
+[TOC]
+
 # Vega Carlson - Group 165 - Spring '22, Week 1
 
 ## Saturday, Jan 15th -- W:0.0 T:0.0
@@ -386,7 +388,7 @@ Oh. My. God. I figured it out, Python wasn't making copies of the data objects b
 
 # Mar 12-18 → Spring Break
 
-# Vega Carlson - Group 165 - Spring '22, Week 8
+# Vega Carlson - Group 165 - Spring '22, Week 10
 
 ## Saturday, Mar 19th -- W0.0 T:60.6
 
@@ -430,27 +432,75 @@ Oh. My. God. I figured it out, Python wasn't making copies of the data objects b
 
 - [x] BDN9 needs to be remapped so that the shift functions on the knobs work
 
-- [ ] Never actually programed in the ability to change the pattern sequence (!!!)
+- [x] Never actually programed in the ability to change the pattern sequence (!!!)
 
-  - [ ] Should probably add pattern copy-paste if it's easy enough, as building each pattern from scratch is horribly tedious. This might be a very large task though, and obviously time is running thin.
+  - [x] Should probably add pattern copy-paste if it's easy enough, as building each pattern from scratch is horribly tedious. This might be a very large task though, and obviously time is running thin.
 
   * I may reuse some of the step sequence entry keys for setting the pattern sequence, and might make it so that the pattern sequence is selected as a sort of 11th track. It's a bit of a hack-y solution, but it should be realatively easy to impliment.
 
-- [ ] Song save/restore was made near the beginning, but I suspect other changes have since broken it, and I never made the UI for it. It may just be that we limit it to one song, though I would still like to have a save button combo and for it to reload this state on initalization. 
+- [x] Song save/restore was made near the beginning, but I suspect other changes have since broken it, and I never made the UI for it. It may just be that we limit it to one song, though I would still like to have a save button combo and for it to reload this state on initalization. 
 
   * I'm not sure, but I think song restore might actually still be happening, just from a really old version?
   * The functionality to change songs is still there, but exposing a UI for it would take time.
 
 **0.7hr** - Starting with the BDN9 code. Most of the issue was accidently having something as `x(); if(cond){y();}` when I needed  `if(cond){y();}else{x();}`. An easy fix in logic, but quite annoying. Then fixed these in the python code to respect the mappings, fixed the delay time defaulting to 0 and delay mix defaulting to fully wet, flipped the note (pitch) and reverb value mappings to make them logical, and made the selected parameter visible on screen for a time after the parameter select knob has been turned.
 
-## Friday, Mar 25th -- W:8.3 T:60.6
+## Friday, Mar 25th -- W:8.0 T:68.6
 
 **0.5hr** - Meeting. See minutes.
 
 **0.5hr** - Helped Kaleb get KiCad (and some other things) working well on his laptop, as some things were horribly slow.
 
-2:55 - Starting by fixing the panning parameter of the digital drums in Purr Data. I then tried to make it so step parameters colud be changed without actually flipping the step state. This is not going to easily fit into this code as it's steup, and realistically the current setup is fine as is, albeit slightly annoying as it means per-step values should really be entered when the step is first toggled on. Next onto pattern sequencing and manual control
+**2.0hr** - Starting by fixing the panning parameter of the digital drums in Purr Data. I then tried to make it so step parameters colud be changed without actually flipping the step state. This is not going to easily fit into this code as it's steup, and realistically the current setup is fine as is, albeit slightly annoying as it means per-step values should really be entered when the step is first toggled on. Next got both manual pattern changing and pattern sequence step entry working.
+
+**0.5hr** - Got save & load functinoality working again, and added the ability to change songs.
+
+**0.5hr** - Added pattern copy and paste, as the lack of it is very tedious. It also shows some nice error messages on the screen if you try to copy steps between incompatible drum types.
+
+**0.8hr** - Found a newly intruduced bug (from a fix yesterday) where changing the BPM gets covered up by the target parameter. I had to resort to an ugly fix for this, but it works. Also realized I had the bpm knob backwards, so got that too. 
+
+Also found a bug in my copy paste code- it wasn't making a deep copy. So, any pattern that is copied is by refence... meaning a change in a pasted pattern affects the original copy. Fixed with `copy.deepcopy()`. Frankly, I think the unintended functionality was actually pretty neat though, so I went ahead and made it a feature on a differnt key press.
+
+**0.6hr** - Working on the error handling code to show if the keyboards arent found. Also started doing a bit of research into what python libraries to use if we can't get the RP2040 board to show up as a MIDI device. Last time I did serial in python it was a major headache. It looks like `pyserial` is still the go-to, and I vaugely remember using `ports = glob.glob('/dev/tty[A-Za-z]*')` from [This Stackoverflow](https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python) answer before. I'd really rather not do it this way, but if necessary I think it can work. I also went looking for good MIDI libraries supporting the 2040, and ~~all of them appear to be for CircuitPython~~ this is the only one I can find that's in C: https://github.com/hathach/tinyusb.
 
 ---
 
-**Week ending 3/25 = **8.3 hours, **total** = 60.6
+**Week ending 3/25 = **8.0 hours, **total** = 68.6
+
+# Vega Carlson - Group 165 - Spring '22, Week 11
+
+## Saturday, Mar 26th -- W:0.0 T:68.6
+
+**0.0hr** -- No Progress today
+
+## Sunday, Mar 27th -- W:0.0 T:68.6
+
+**0.0hr** -- No Progress today
+
+## Monday, Mar 28th -- W:3.0 T:71.6
+
+**!3.0hr** -- Worked on getting Linux reinstalled and setup on my laptop so that we can more easily run the sequencer, flash the keyboards, etc. while on campus.  (actually about 5 hours, but I don't think it's fair to count all of this) It's still not done, but it's most of the way there.
+
+## Tuesday, Mar 29th -- W:3.0 T:71.6
+
+**0.0hr** -- No Progress today
+
+## Wednesday, Mar 30th -- W:4.0 T:72.6
+
+**0.5hr** -- Meeting. See minutes.
+
+**0.5hr** -- Trying to get the rp2040 board working. Still no dice.
+
+## Thursday, Mar 31st  -- W:5.5 T:63.2
+
+**1.5hr** - Starting up OpenSCAD and to try get to get [this Lasercut library](https://github.com/bmsleight/lasercut) working, just to get the very star of the encosure. Sort of just putting comments in and thinking about the box's layout right now. Sizes as listed are wrong, but should be close. I might switch to cm before moving on to much.
+
+![image-20220331165304767](../../../../../../../home/vega/.config/Typora/typora-user-images/image-20220331165304767.png)
+
+## Friday, April 1st -- W:8.0 T:74.1
+
+**1.0hr** - Meeting. See minutes.
+
+---
+
+**Week ending 3/25 = **6.5 hours, **total** = 74.1
