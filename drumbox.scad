@@ -1,4 +1,4 @@
-include <lasercut/lasercut.scad>;
+use <lasercut.scad>;
 
 // 1 unit = .01"
 thickness = 25;
@@ -7,9 +7,59 @@ x = 1675 + 2*thickness;
 y = 850 + 2*thickness; //8.5"
 z = 200 + 2*thickness; //2.0" thick should be fine?
 
+module mainBox() {
+{
 color("Gold",0.75) translate([(6-4),0,0]) 
     lasercutoutBox(thickness = thickness, x=x, y=y, z=z, 
     sides=6, num_fingers=4);
+}
+}
+
+
+module drumAndEffectModules() {   //All 5 Drum Modules + 2 Effect Modules
+ difference() {mainBox();
+               translate([50,450,100]){cube([200,400,300]);}
+               translate([275,450,100]){cube([200,400,300]);}
+               translate([500,450,100]){cube([200,400,300]);}
+               translate([725,450,100]){cube([200,400,300]);}
+               translate([950,450,100]){cube([200,400,300]);}
+               translate([1250,450,100]){cube([200,400,300]);}
+               translate([1475,450,100]){cube([200,400,300]);}
+}
+}
+
+module keyBoards() {     //BDN9 + 3x10 Keyboard
+  difference() {drumAndEffectModules();
+               translate([50,50,100]){cube([665,250,300]);}
+               translate([50+665+50,50,100]){cube([250,250,300]);}
+}   
+}
+
+module piHats() {      //Pi Hat + Master Volume & Filter Knobs
+  difference() {keyBoards();
+               translate([50+665+50+250+50,50+6.25,100]){cube([256.25,237.5,300]);}
+               translate([50+665+50+250+50+256.25+100+50,125,100]){cylinder(h=1000,d=50);}
+               translate([50+665+50+250+50+256.25+100+50,325,100]){cylinder(h=1000,d=50);}
+               translate([50+665+50+250+50+256.25+100+50+125,225,100]){cylinder(h=1000,d=50);}
+}     
+}
+
+module backStuff(){    //Power Cords, Cooling Fan, Audio Out Ports
+    difference() {piHats();
+        translate ([100, 850, 200])rotate([-90,0,0]){cylinder(h=1000, d=37.5);}   //d = 3/8"
+        translate ([200, 850, 200])rotate([-90,0,0]){cylinder(h=1000, d=37.5);}   
+        translate ([50, 850, 50]){cube([200,100,100]);}    //Power Cords
+        translate ([650, 850, 50]){cube([387.5,62.5,100]);}
+    }
+    
+}
+module view() {
+   difference() {piHats();
+       translate([0,0,-100]){cube([10000,10000,300]);}
+   }
+}
+
+backStuff();
 
 //// TOP ROW
 
