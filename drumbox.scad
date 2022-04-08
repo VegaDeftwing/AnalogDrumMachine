@@ -1,65 +1,69 @@
-use <lasercut.scad>;
+include <lasercut.scad>; 
 
 // 1 unit = .01"
+
 thickness = 25;
 x = 1675 + 2*thickness;
 // Height = 2*.25" boarder + 4" Top + 2.5" Bottom + 1.5" switches == 8.5"
 y = 850 + 2*thickness; //8.5"
 z = 200 + 2*thickness; //2.0" thick should be fine?
 
-module mainBox() {
-{
-color("Gold",0.75) translate([(6-4),0,0]) 
-    lasercutoutBox(thickness = thickness, x=x, y=y, z=z, 
-    sides=6, num_fingers=4);
-}
-}
+circles1 = [];   //Bottom
+
+circles2 = [[12.5,1550,50],[12.5,1550,150],[12.5,1550,250]];  //Top
+
+circles3 = [];
+
+circles4 = [[18.75,50,175],[18.75,200,175]];
+
+circles5 = [];
+
+circles6 = [];
+            
+slits1 = [];  //Bottom
+
+slits2 = [[25, 425, 200, 400],[250, 425, 200, 400],[475, 425, 200, 400],[700, 425, 200, 400],[950, 425, 200, 400],[1225, 425, 200, 400],[1440, 425, 200, 400],[25,25,775,275],[850,25,250,250],[1150,25,256.25,237.5]];   //Top
+
+slits3 = [];   //Front
+
+slits4 = [[25,25,200,100],[600,25,387.5,100]];  //Back
+
+slits5 = [];  //Small Side 1
+
+slits6 = [];   //Small Side 2
 
 
-module drumAndEffectModules() {   //All 5 Drum Modules + 2 Effect Modules
- difference() {mainBox();
-               translate([50,450,100]){cube([200,400,300]);}
-               translate([275,450,100]){cube([200,400,300]);}
-               translate([500,450,100]){cube([200,400,300]);}
-               translate([725,450,100]){cube([200,400,300]);}
-               translate([950,450,100]){cube([200,400,300]);}
-               translate([1250,450,100]){cube([200,400,300]);}
-               translate([1475,450,100]){cube([200,400,300]);}
-}
-}
+circles_remove_a = [
+        circles1,
+        circles2,
+        circles3,
+        circles4,
+        circles5,
+        circles6
+];
+cutouts_a = [
+        slits1,
+        slits2,
+        slits3,
+        slits4,
+        slits5,
+        slits6
+];
 
-module keyBoards() {     //BDN9 + 3x10 Keyboard
-  difference() {drumAndEffectModules();
-               translate([50,50,100]){cube([665,250,300]);}
-               translate([50+665+50,50,100]){cube([250,250,300]);}
-}   
-}
+lasercutoutBox(thickness=thickness, x=x, y=y, z=z, sides=6, num_fingers=4,
+        simple_tab_holes_a=[], 
+        captive_nuts_a=[], captive_nut_holes_a=[],
+        screw_tab_holes_a=[],
+        twist_holes_a=[],
+        clip_holes_a=[],
+        circles_add_a=[],
+        circles_remove_a=circles_remove_a,
+        slits_a = [],
+        cutouts_a = cutouts_a,
+        milling_bit = 0.0
+);
 
-module piHats() {      //Pi Hat + Master Volume & Filter Knobs
-  difference() {keyBoards();
-               translate([50+665+50+250+50,50+6.25,100]){cube([256.25,237.5,300]);}
-               translate([50+665+50+250+50+256.25+100+50,125,100]){cylinder(h=1000,d=50);}
-               translate([50+665+50+250+50+256.25+100+50,325,100]){cylinder(h=1000,d=50);}
-               translate([50+665+50+250+50+256.25+100+50+125,225,100]){cylinder(h=1000,d=50);}
-}     
-}
 
-module backStuff(){    //Power Cords, Cooling Fan, Audio Out Ports
-    difference() {piHats();
-        translate ([100, 850, 200])rotate([-90,0,0]){cylinder(h=1000, d=37.5);}   //d = 3/8"
-        translate ([200, 850, 200])rotate([-90,0,0]){cylinder(h=1000, d=37.5);}   
-        translate ([50, 850, 50]){cube([200,100,100]);}    //Power Cords
-        translate ([650, 850, 50]){cube([387.5,62.5,100]);}
-    }
-    
-}
-module view() {
-   difference() {piHats();
-       translate([0,0,-100]){cube([10000,10000,300]);}
-   }
-}
-
-backStuff();
 
 //// TOP ROW
 
@@ -79,7 +83,7 @@ backStuff();
 
 //// BOTTOM
 
-// Cut out hole for keyboard - ~6.65"x2.5"
+// Cut out hole for keyboard - ~8"x2.75"
 // == 6.9 (with .25 left boarder)
 
 // Cut out hole for BDN9 - ~2.5"x2.5", .5 gap between BDN9 & keep
