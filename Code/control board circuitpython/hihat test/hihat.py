@@ -16,7 +16,7 @@ import digitalio
 
 import busio
 
-#channel1i2c = busio.I2C(board.GP3, board.GP2)
+#channel1i2c = busio.I2C(board.GP3, board.GP4)
 #channel2i2c = busio.I2C(board.GP7, board.GP6)
 #channel3i2c = busio.I2C(board.GP11, board.GP10)
 #channel4i2c = busio.I2C(board.GP15, board.GP14)
@@ -71,47 +71,43 @@ while True:
     msg = midi.receive()
     #print(msg.channel)
     if msg is not None:
-        print(msg.channel)
-        if (msg.channel == 0):  # Channel 1 - Bass Drum
-            if type(msg) == ControlChange: #decay
-                print(msg.value)
-                channel1i2c = busio.I2C(board.GP3, board.GP2)
-                if(msg.control == 0):
-                    while not channel1i2c.try_lock():
-                        pass
-                    try:
-                        registerValue = 0x01
-                        decay = msg.value
-                        registerValue *= 16
-                        byteList = [registerValue, decay]
-                        print(byteList)
-                        #writing to digipot
-                        channel1i2c.writeto(chipAddress, bytes(byteList))
-                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-                        channel1i2c.unlock()
-                    channel1i2c.deinit()
-            elif type(msg) == NoteOn:
-                led0.value = True
-                bassDrumState = not bassDrumState
-                trig0.value = bassDrumState
-                channel1i2c = busio.I2C(board.GP3, board.GP2)
-                while not channel1i2c.try_lock():
-                        pass
-                try:
-                    registerValue = 0x00
-                    frequency = msg.note
-                    level = msg.velocity
-                    registerValue *= 16
-                    byteList = [registerValue, frequency]
-                    print(byteList)
-                    #writing to digipot
-                    channel1i2c.writeto(chipAddress, bytes(byteList))
-                finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-                    channel1i2c.unlock()
-                channel1i2c.deinit()
-            elif type(msg) == NoteOff:
-                led0.value = False
-                pass
+        #print(msg.channel)
+        # if (msg.channel == 0):  # Channel 1 - Bass Drum
+        #     if type(msg) == ControlChange: #decay
+        #         print(msg.value)
+        #         if(msg.control == 0):
+        #             while not channel1i2c.try_lock():
+        #                 pass
+        #             try:
+        #                 registerValue = 0x00
+        #                 decay = msg.value
+        #                 registerValue *= 16
+        #                 byteList = [registerValue, decay]
+        #                 print(byteList)
+        #                 #writing to digipot
+        #                 channel1i2c.writeto(chipAddress, bytes(byteList))
+        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+        #                 channel1i2c.unlock()
+        #     elif type(msg) == NoteOn:
+        #         led0.value = True
+        #         bassDrumState = not bassDrumState
+        #         trig0.value = bassDrumState
+        #         while not channel1i2c.try_lock():
+        #                 pass
+        #         try:
+        #             registerValue = 0x00
+        #             frequency = msg.note
+        #             level = msg.velocity
+        #             registerValue *= 16
+        #             byteList = [registerValue, frequency]
+        #             print(byteList)
+        #             #writing to digipot
+        #             channel1i2c.writeto(chipAddress, bytes(byteList))
+        #         finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+        #             channel1i2c.unlock()
+        #     elif type(msg) == NoteOff:
+        #         led0.value = False
+        #         pass
         # elif msg.channel == 1: #Channel 2 - FM Drum
         #     if(type(msg) == ControlChange):
         #         if(msg.control == 0): #digi 2 (U3 wiper 0)
