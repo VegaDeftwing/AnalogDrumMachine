@@ -79,6 +79,7 @@ skip_RGB_print_state = False
 param_step = 0
 param_microstep = 0
 param_index = 0
+last_param_index = 0;
 pattern_seq_step_loop = 0
 temp_steps = None
 copy_type = None
@@ -349,36 +350,40 @@ class Drum:
         global skip_print_count
         global skip_print_state
         global param_index
+        global last_param_index
         global bpm_recently_updated
         # if value_delta == 0:
         #     return
 
-        if skip_print_state == False:
-            skip_print_count = 20
-            skip_print_state = True
-
         base_dict = asdict(self.base)
         i = 0
         param_index = param_index % len(base_dict.keys())
-        for key in base_dict.keys():
-            if i == param_index:
-                current_value = getattr(self.base,key)
-                check_value = current_value + value_delta
-                new_value = midi_clamp(current_value+value_delta)
-                if check_value == 128:
-                    write_string(str(key)+"▲",kerning=False)
-                elif check_value == -1:
-                    write_string(str(key)+"▼",kerning=False)
-                elif value_delta > 0:
-                    write_string(str(key)+"+",kerning=False)
-                elif value_delta < 0:
-                    write_string(str(key)+"-",kerning=False)
-                elif (value_delta == 0) and (bpm_recently_updated == False):
-                    write_string(str(key),kerning=False)
-                else:
-                    bpm_recently_updated = False
-                setattr(self.base,key,new_value)
-            i += 1
+
+        if skip_print_state == False or param_index != last_param_index:
+            for key in base_dict.keys():
+                if i == param_index:
+                    last_param_index = param_index
+                    current_value = getattr(self.base,key)
+                    check_value = current_value + value_delta
+                    new_value = midi_clamp(current_value+value_delta)
+                    if check_value == 128:
+                        write_string(str(key)+"▲",kerning=False)
+                    elif check_value == -1:
+                        write_string(str(key)+"▼",kerning=False)
+                    elif value_delta > 0:
+                        write_string(str(key)+"+",kerning=False)
+                    elif value_delta < 0:
+                        write_string(str(key)+"-",kerning=False)
+                    elif (value_delta == 0) and (bpm_recently_updated == False):
+                        write_string(str(key),kerning=False)
+                    else:
+                        bpm_recently_updated = False
+                    setattr(self.base,key,new_value)
+                i += 1
+
+        if skip_print_state == False:
+            skip_print_count = 20
+            skip_print_state = True
         # check the new base values don't create bad offsets
         self.check_all_offsets()
 
