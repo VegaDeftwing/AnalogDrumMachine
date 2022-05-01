@@ -1,3 +1,5 @@
+#HOLDS LATEST VERSION OF code.py
+
 # SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
 # SPDX-License-Identifier: MIT
 # simple_test
@@ -89,7 +91,7 @@ while True:
                         channel1i2c.writeto(chipAddress, bytes(byteList))
                     finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                         channel1i2c.unlock()
-                    channel1i2c.deinit()
+                        channel1i2c.deinit()
             elif type(msg) == NoteOn:
                 led0.value = True
                 bassDrumState = not bassDrumState
@@ -108,7 +110,7 @@ while True:
                     channel1i2c.writeto(chipAddress, bytes(byteList))
                 finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                     channel1i2c.unlock()
-                channel1i2c.deinit()
+                    channel1i2c.deinit()
             elif type(msg) == NoteOff:
                 led0.value = False
                 pass
@@ -201,43 +203,47 @@ while True:
         #     elif type(msg) == NoteOff:
         #         led1.value = False
         #         pass
-        # elif(msg.channel == 2): #Channel 3 - Snare
-        #     if(type.msg == ControlChange):
-        #         if(msg.control == 0): #digi 1
-        #             while not channel3i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x00
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel3i2c.writeto(chipAddress, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel3i2c.unlock()
-        #         if(msg.control == 1): #digi 2
-        #             while not channel3i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x01
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel3i2c.writeto(chipAddress, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel3i2c.unlock()
-        #     elif type(msg) == NoteOn:
-        #         led2.value = True
-        #         snareState = not snareState
-        #         trig2.value = snareState
-        #     elif type(msg) == NoteOff:
-        #         led2.value = False
-        #         #  trig0.value = True
-        #         pass
+        elif(msg.channel == 2): #Channel 3 - Snare
+            if(type(msg) == NoteOn):
+                channel3i2c = busio.I2C(board.GP11, board.GP10)
+                print(msg.channel)
+                led2.value = True
+                snareState = not snareState
+                trig2.value = False
+                print("This Print Is Acting As A Delay") #Do not remove!!!!
+                trig2.value = True
+                print(msg.note)
+                print(msg.velocity)
+                print("Next")
+
+                while not channel3i2c.try_lock():
+                        pass
+                try:
+                    register0Value = 0x00
+                    register1Value = 0x01
+                    snareFreq = msg.note
+                    snareLevel = msg.velocity
+                    register1Value *= 16
+                    byteList = [register0Value, snareFreq]
+                    print(byteList)
+                    #writing to digipot
+                    channel3i2c.writeto(0x2F, bytes(byteList))
+
+                    byteList = [register1Value, snareLevel]
+                    print(byteList)
+                    channel3i2c.writeto(0x2F, bytes(byteList))
+                finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                    channel3i2c.unlock()
+                    channel3i2c.deinit()
+            elif type(msg) == NoteOff:
+                # trig2.value = False
+                # print("TESTTTTTTT") #Do not remove!!!!
+                # trig2.value = True
+                led2.value = False
+                #  trig0.value = True
+                #pass
         if(msg.channel == 3): #Channel 4 - HiHat
+            highHatDeviceAddress = 0x2F
             if type(msg) == NoteOn:
                 channel4i2c = busio.I2C(board.GP15, board.GP14)
                 print(msg.channel)
@@ -259,14 +265,14 @@ while True:
                     byteList = [register0Value, hiHatDecay]
                     print(byteList)
                     #writing to digipot
-                    channel4i2c.writeto(chipAddress, bytes(byteList))
+                    channel4i2c.writeto(highHatDeviceAddress, bytes(byteList))
 
                     byteList = [register1Value, hiHatLevel]
                     print(byteList)
-                    channel4i2c.writeto(chipAddress, bytes(byteList))
+                    channel4i2c.writeto(highHatDeviceAddress, bytes(byteList))
                 finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                     channel4i2c.unlock()
-                channel4i2c.deinit()
+                    channel4i2c.deinit()
             elif type(msg) == NoteOff:
                 led3.value = False
                 #  trig0.value = True
@@ -275,6 +281,7 @@ while True:
         #     if type(msg) == ControlChange:
         #         led4.value = True
         #         print(msg.value)
+        #
 
         #         if(msg.control == 0):
         #             while not channel5i2c.try_lock():
