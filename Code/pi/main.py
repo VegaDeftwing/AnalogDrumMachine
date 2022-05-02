@@ -359,7 +359,7 @@ class Drum:
         i = 0
         param_index = param_index % len(base_dict.keys())
 
-        if skip_print_state == False or param_index != last_param_index:
+        if skip_print_state == False or param_index != last_param_index or value_delta == 1 or value_delta == -1:
             for key in base_dict.keys():
                 if i == param_index:
                     last_param_index = param_index
