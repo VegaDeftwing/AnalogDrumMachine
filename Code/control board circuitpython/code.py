@@ -69,6 +69,7 @@ print("Midi test")
 # Convert channel numbers at the presentation layer to the ones musicians use
 # print("Default output channel:", midi.out_channel + 1)
 # print("Listening on input channel:", midi.in_channel + 1)
+#time.sleep(2)
 while True:
     msg = midi.receive()
     #print(msg.channel)
@@ -77,8 +78,8 @@ while True:
         if (msg.channel == 0):  # Channel 1 - Bass Drum
             if type(msg) == ControlChange: #decay
                 print(msg.value)
-                channel1i2c = busio.I2C(board.GP3, board.GP2)
                 if(msg.control == 0):
+                    channel1i2c = busio.I2C(board.GP3, board.GP2)
                     while not channel1i2c.try_lock():
                         pass
                     try:
@@ -89,6 +90,8 @@ while True:
                         print(byteList)
                         #writing to digipot
                         channel1i2c.writeto(chipAddress, bytes(byteList))
+                    except:
+                        pass
                     finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                         channel1i2c.unlock()
                         channel1i2c.deinit()
@@ -104,10 +107,15 @@ while True:
                     frequency = msg.note
                     level = msg.velocity
                     registerValue *= 16
-                    byteList = [registerValue, frequency]
+                    #TODO: CHANGE BACK TO MSG FREQUENCY
+                    #byteList = [registerValue, frequency]
+                    byteList = [registerValue, 1]
                     print(byteList)
                     #writing to digipot
-                    channel1i2c.writeto(chipAddress, bytes(byteList))
+                    #channel1i2c.writeto(chipAddress, bytes(byteList))
+                    channel1i2c.write(0x2F, bytes(byteList)) #frequency
+                except:
+                    pass
                 finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                     channel1i2c.unlock()
                     channel1i2c.deinit()
@@ -203,6 +211,7 @@ while True:
         #     elif type(msg) == NoteOff:
         #         led1.value = False
         #         pass
+        #test
         elif(msg.channel == 2): #Channel 3 - Snare
             if(type(msg) == NoteOn):
                 channel3i2c = busio.I2C(board.GP11, board.GP10)
@@ -232,6 +241,8 @@ while True:
                     byteList = [register1Value, snareLevel]
                     print(byteList)
                     channel3i2c.writeto(0x2F, bytes(byteList))
+                except:
+                    pass
                 finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                     channel3i2c.unlock()
                     channel3i2c.deinit()
@@ -248,8 +259,11 @@ while True:
                 channel4i2c = busio.I2C(board.GP15, board.GP14)
                 print(msg.channel)
                 led3.value = True
-                hiHatState = not hiHatState
-                trig3.value = hiHatState
+                # hiHatState = not hiHatState
+                # trig3.value = hiHatState
+                trig3.value = False
+                print("This Print Is Acting As A Delay") #Do not remove!!!!
+                trig3.value = True
                 print(msg.note)
                 print(msg.velocity)
                 print("Next")
@@ -270,6 +284,8 @@ while True:
                     byteList = [register1Value, hiHatLevel]
                     print(byteList)
                     channel4i2c.writeto(highHatDeviceAddress, bytes(byteList))
+                except:
+                    pass
                 finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
                     channel4i2c.unlock()
                     channel4i2c.deinit()
