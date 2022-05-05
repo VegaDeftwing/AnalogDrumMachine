@@ -1,12 +1,10 @@
-# G165 - Project Spec, Rev. 6 (Updated 05/05/22)
+# G165 - Project Spec, Rev. 7 (Updated 05/05/22)
 
 Overview:
 
-At a high level, the goal of the project is to make a self-contained (excluding speaker), hybrid (analog and digital), drum machine with an inbuilt sequencer and effects.
+At a high level, the goal of the project is to make a self-contained (excluding speaker), hybrid (analog and digital), drum machine with an inbuilt sequencer and digital effects.
 
-Both for the ease of development and as a feature, the **analog drums** are designed as modules which may be rearranged or replaced outright. This allows for added flexibility as the drum machine can be configured in otherwise a-typical ways, such as making all the drums be the same bass drum (if enough of the same module were available). Each of these analog drums has added **digipots** which allow for parameters of an analog drum to be varied per-step.
-
-Similarly, two effect modules are included; however, only the analog drums may be routed through these.
+Both for the ease of development and as a feature, the **analog drums** are designed as modules which may be rearranged or replaced outright. This allows for added flexibility as the drum machine can be configured in otherwise a-typical ways, such as making all the drums be the same bass drum (if enough of the same module were available). Some of these analog drums have added **digipots**, which allow for parameters of an analog drum to be varied per-step.
 
 The **digital drums** on the other hand are samples played back with in the Purr-Data (PD) visual programming environment. This allows for extreme flexibility, and low overhead as PD is quite efficient yet allows for the creation of custom effects- speaking of, each digital drum will have a few built-in effects: Reverb, Delay, and Distortion. Purr-Data runs on the **Raspberry pi 3b+** at the heart of the project.
 
@@ -14,11 +12,9 @@ Along with PD, the pi also running a python script which injects data from two c
 
 For the analog drums, the information about when to trigger and what values to send to the digipots is sent over USB to a **custom RP2040 based board**.
 
-The analog drums can output to one of three effect busses: A, B, or NoEffect. These busses create a mono mix of the signals, but all output a stereo pair. This allows for more interesting effects, such as a delay with slightly different timing on the left and right channels. For the NoEffect bus, the signal is always simply duplicated to both channels.
+The output from the analog drums and the pi running the digital drums is then mixed and the volume can for digital and analog drums can be changed to ensure everything can be heard via a 3.5mm jack. 
 
-The output from the three effect busses and the pi running the digital drums is then mixed and sent though an **analog low pass filter** with adjustable cutoff and resonance, before finally going through a potentiometer to adjust the level and being output through a stereo 3.5mm jack.
-
-![specrev5](./Images/specrev5.png)
+![specrev7](./Images/specrev7.png)
 
 # The Analog Drums
 
@@ -30,7 +26,7 @@ This is all sent over a 2x12 2.5mm header connection, where the rows are duplica
 | -------------- | --------------- | -------- | ------ | ---- | ---- | ------ | ---- | ------ | ------- | ------- | ------- |
 | Audio Out Left | Audio Out Right | Audio In | Ground | +12V | -12V | Ground | 5V   | Detect | i2c SDA | i2c SDL | Trigger |
 
-It should be noted that this connector is **not** reversible, and doing so will damage the device
+It should be noted that this connector is **not** reversible, and doing so will damage the device. Also, some of the drums experienced issues near the end. Had there been more time, the drums could have been reworked. 
 
 ### Bass Drum & Toms
 
@@ -84,17 +80,7 @@ Repeating the same 16 (or 64, depending on how you look at it) step sequence on 
 
 ![specrev5-2](./Images/specrev6.png)
 
-## The Effects
 
-Three effect modules will be built: a distortion, a delay, and a guitar-pedal interface. These will all take in a mono signal and output a stereo signal. For the delay and distortion, this means doing two paths of nearly the same effect, such as having the delay be a slightly different time to add stero depth. For the pedal interface module, most guitar pedals only take in and output a mono signal; however, some do provide stereo. This will just require a switch to set weather or not the left return channel needs duplicated to the right. The distortion will be designed based on the Green Ringer, and the delay will be made with the PT2399.
-
-### Low Pass Filter
-
-Unlike the other effects, which are swappable modules, a global low pass filter with resonance is built in the enclosure. This not-a-module was chosen to be a permanent addition as it is useful for it to act on the final signal - post mixing of the pi's output and the other effects- which would require a different pin out than the existing bus connector. The reason for a low pass filter being this important is because it can hide other issues in the sound (aliasing, etc), is generally highly functional as a live control- with a quick sweep down of a low pass filter with heavy resonance being a staple sound of electronic music, and can be useful as a general overall tone control should the high frequencies become overwhelming- a legitimate concern with our choices in drums.
-
-### Volume
-
-At the very end, before the output to a 3.5mm stereo jack, there is a stereo potentiometer for setting the volume. This is necessary to avoid overloading anything, and must happen after the filter to account for the gain that may come from the added resonance.
 
 ## The Control Board
 
@@ -102,7 +88,7 @@ The control board consists of an RP2040 microcontroller to recieve information a
 
 ### Mixer
 
-![Mixer](./Images/Mixer.png)
+![Mixer](./Images/Mixer-Updated.png)
 
 ## The Displays & Keyboard
 
@@ -116,13 +102,15 @@ The choice in keyboards was mostly out of necessitity. The BDN9 macropad with it
 
 ## Power Supply
 
-Power is supplied by a Meanwell RT65b, which provides ample current and the necessary +12,-12, and 5V rails to power the modules and Raspberry pi. The pico is powered from this 5V rail as well; however, it is a 3.3V logic device, which is why the i2c logic, detect inputs, and triggers are all 3.3V as well.
+Power is supplied by a Meanwell RT65b, which provides ample current and the necessary +12,-12, and 5V rails to power the modules and Raspberry pi. The pico is powered from a 3.3V regulator that is fed via the 5V output of the power supply because it is a 3.3V logic device, which is why the i2c logic, detect inputs, and triggers are all 3.3V as well.
 
 ## Enclosure
 
-Until all of the PCBs are designed and tested, it's a bit difficult to design the final enclosure with rigid limits on dimensions. Initially we intended to make a very simple, shallow, rectangular box out of thin acrylic or plywood and cut out module panels and holes for the keyboard as necessary. However, depending on how much time we have left, this may be a more crude design. The modules themselves will need a small 'lip' of some sort to rest on while inserted and something to hold them down. The current idea is to just use fly-nuts to bolt them down; however, this may change. Basically the entire enclosure design will be based on how much time we have left. 
+The enclosure is built from acrylic. It was built in OpenSCAD and used a lasercutting library to convert a 3D model to six 2D pieces with notches similar to a puzzle piece. It is held together using an adhesive, and the drum modules are attached to smaller pieces or acrylic with a zip tie. Holes were drilled for the potentiometers, and an additional piece of acrylic is used to prevent the drum modules from falling into the box. 
 
-<img src="./Images/image-20220203153608656.png" alt="image-20220203153608656" style="zoom:20%;" />
+![Enclosure](./Images/Enclosure.png)
 
 
+
+![Enclosure2](./Images/Enclosure2.png)
 
