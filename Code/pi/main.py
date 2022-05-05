@@ -79,6 +79,7 @@ skip_RGB_print_state = False
 param_step = 0
 param_microstep = 0
 param_index = 0
+last_param_index = 0;
 pattern_seq_step_loop = 0
 temp_steps = None
 copy_type = None
@@ -216,11 +217,10 @@ class BassDrumData(AnalogDrumData):
 class TomDrumData(AnalogDrumData):
     freq: int
     decay: int
-    range_switch: int
 
 @dataclass
 class SnareDrumData(AnalogDrumData):
-    decay: int
+    frequency: int
 
 @dataclass
 class HiHatDrumData(AnalogDrumData):
@@ -350,36 +350,40 @@ class Drum:
         global skip_print_count
         global skip_print_state
         global param_index
+        global last_param_index
         global bpm_recently_updated
         # if value_delta == 0:
         #     return
 
-        if skip_print_state == False:
-            skip_print_count = 20
-            skip_print_state = True
-
         base_dict = asdict(self.base)
         i = 0
         param_index = param_index % len(base_dict.keys())
-        for key in base_dict.keys():
-            if i == param_index:
-                current_value = getattr(self.base,key)
-                check_value = current_value + value_delta
-                new_value = midi_clamp(current_value+value_delta)
-                if check_value == 128:
-                    write_string(str(key)+"▲",kerning=False)
-                elif check_value == -1:
-                    write_string(str(key)+"▼",kerning=False)
-                elif value_delta > 0:
-                    write_string(str(key)+"+",kerning=False)
-                elif value_delta < 0:
-                    write_string(str(key)+"-",kerning=False)
-                elif (value_delta == 0) and (bpm_recently_updated == False):
-                    write_string(str(key),kerning=False)
-                else:
-                    bpm_recently_updated = False
-                setattr(self.base,key,new_value)
-            i += 1
+
+        if skip_print_state == False or param_index != last_param_index or value_delta == 1 or value_delta == -1:
+            for key in base_dict.keys():
+                if i == param_index:
+                    last_param_index = param_index
+                    current_value = getattr(self.base,key)
+                    check_value = current_value + value_delta
+                    new_value = midi_clamp(current_value+value_delta)
+                    if check_value == 128:
+                        write_string(str(key)+"▲",kerning=False)
+                    elif check_value == -1:
+                        write_string(str(key)+"▼",kerning=False)
+                    elif value_delta > 0:
+                        write_string(str(key)+"+",kerning=False)
+                    elif value_delta < 0:
+                        write_string(str(key)+"-",kerning=False)
+                    elif (value_delta == 0) and (bpm_recently_updated == False):
+                        write_string(str(key),kerning=False)
+                    else:
+                        bpm_recently_updated = False
+                    setattr(self.base,key,new_value)
+                i += 1
+
+        if skip_print_state == False:
+            skip_print_count = 20
+            skip_print_state = True
         # check the new base values don't create bad offsets
         self.check_all_offsets()
 
@@ -454,6 +458,23 @@ class BassDrumModule(AnalogDrum):
         self.base = BassDrumData(100,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(BassDrumData(0,0,0)))
+
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_frequency = self.base.freq + self.get_current_microstep_data().freq
+        total_decay = self.base.decay + self.get_current_microstep_data().decay
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+            #----PARAM----
+            msg = mido.Message('control_change', control=16, value=total_decay, channel=self.number) #Decay is on 
+            port_pico.send(msg)
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_frequency, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off',  channel=self.number)
+            port_pico.send(msg)
     
     def get_name(self):
         return "BASS"
@@ -461,9 +482,26 @@ class BassDrumModule(AnalogDrum):
 class TomDrumModule(AnalogDrum):
     def __init__(self,name, active, number):
         super().__init__(name, active, number)
-        self.base = TomDrumData(100,64,64,0)
+        self.base = TomDrumData(100,64,64)
         for i in range(16): #16 steps per track
-            self.steps.append(Step(TomDrumData(0,0,0,0)))
+            self.steps.append(Step(TomDrumData(0,0,0)))
+
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_frequency = self.base.freq + self.get_current_microstep_data().freq
+        total_decay = self.base.decay + self.get_current_microstep_data().decay
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+            #----PARAM----
+            msg = mido.Message('control_change', control=16, value=total_decay, channel=self.number) #Decay is on 
+            port_pico.send(msg)
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_frequency, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off',  channel=self.number)
+            port_pico.send(msg)
     
     def get_name(self):
         return "TOM "
@@ -475,6 +513,19 @@ class SnareDrumModule(AnalogDrum):
         for i in range(16): #16 steps per track
             self.steps.append(Step(SnareDrumData(0,0)))
 
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_frequency = self.base.frequency + self.get_current_microstep_data().frequency
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_frequency, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off', channel=self.number)
+            port_pico.send(msg)
+
     def get_name(self):
         return "SNR "
 
@@ -485,6 +536,19 @@ class HiHatDrumModule(AnalogDrum):
         for i in range(16): #16 steps per track
             self.steps.append(Step(HiHatDrumData(0,0)))
 
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        total_decay = self.base.decay + self.get_current_microstep_data().decay
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_decay, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off', channel=self.number)
+            port_pico.send(msg)
+
     def get_name(self):
         return "HAT "
 
@@ -494,6 +558,42 @@ class FMDrumModule(AnalogDrum):
         self.base = FMDrumData(100,64,64,64,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(FMDrumData(0,0,0,0,0,0)))
+
+    # apc_one_freq: int
+    # apc_two_freq: int
+    # apc_one_duty_cycle: int
+    # apc_two_duty_cycle: int
+    # fm_depth: int
+
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        
+        total_apc_one_freq = self.base.apc_one_freq + self.get_current_microstep_data().apc_one_freq
+        total_apc_two_freq = self.base.apc_two_freq + self.get_current_microstep_data().apc_two_freq
+        total_apc_one_duty_cycle = self.base.apc_one_duty_cycle + self.get_current_microstep_data().apc_one_duty_cycle
+        total_apc_two_duty_cycle = self.base.apc_two_duty_cycle + self.get_current_microstep_data().apc_two_duty_cycle
+
+        total_fm_depth = self.base.fm_depth + self.get_current_microstep_data().fm_depth
+
+
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+             #----PARAM----
+            msg = mido.Message('control_change', control=0, value=total_apc_two_freq, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=1, value=total_apc_one_duty_cycle, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=2, value=total_apc_two_duty_cycle, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=3, value=total_fm_depth, channel=self.number)
+            port.send(msg)
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_apc_one_freq, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off', channel=self.number)
+            port_pico.send(msg)
         
     def get_name(self):
         return "FM  "
@@ -504,6 +604,42 @@ class DroneDrumModule(AnalogDrum):
         self.base = FMDrumData(100,64,64,64,64,64)
         for i in range(16): #16 steps per track
             self.steps.append(Step(FMDrumData(0,0,0,0,0,0)))
+
+        # apc_one_freq: int
+    # apc_two_freq: int
+    # apc_one_duty_cycle: int
+    # apc_two_duty_cycle: int
+    # fm_depth: int
+
+    def play_step(self):
+        total_level = self.base.level + self.get_current_microstep_data().level
+        
+        total_apc_one_freq = self.base.apc_one_freq + self.get_current_microstep_data().apc_one_freq
+        total_apc_two_freq = self.base.apc_two_freq + self.get_current_microstep_data().apc_two_freq
+        total_apc_one_duty_cycle = self.base.apc_one_duty_cycle + self.get_current_microstep_data().apc_one_duty_cycle
+        total_apc_two_duty_cycle = self.base.apc_two_duty_cycle + self.get_current_microstep_data().apc_two_duty_cycle
+
+        total_fm_depth = self.base.fm_depth + self.get_current_microstep_data().fm_depth
+
+
+        # This line prevents a rare-ish bug where the msg variable gets refranced before assignment, for some reason
+        msg = mido.Message('note_on', note=2)
+        if self.current_step_state == True:
+             #----PARAM----
+            msg = mido.Message('control_change', control=0, value=total_apc_two_freq, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=1, value=total_apc_one_duty_cycle, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=2, value=total_apc_two_duty_cycle, channel=self.number)
+            port.send(msg)
+            msg = mido.Message('control_change', control=3, value=total_fm_depth, channel=self.number)
+            port.send(msg)
+            #-----PLAY-----
+            #print("Playing Drum {} on key {} w/ velocity {} on CH. ".format(self.name,total_note,total_level,self.number-4))
+            msg = mido.Message('note_on', note=total_apc_one_freq, velocity=total_level, channel=self.number) # channel number is off-by-1 from real, that is channel=0 actually sends on what PD calls channel 1
+            port_pico.send(msg)
+            msg = mido.Message('note_off', channel=self.number)
+            port_pico.send(msg)
     
     def get_name(self):
         return "DRN "
@@ -984,33 +1120,34 @@ class Song:
                 uh.set_pixel(x,y,0,0,0)
 
         if self.display_mode == 0:
-            #self.show_track_name()
+            # STEP DISPLAY MODE
+            # self.show_track_name()                          #GREEN
             if skip_print_count == 0:
-                self.show_bpm()
+                self.show_bpm()                             #GREEN
                 skip_print_state = False
             else:
                 skip_print_count = skip_print_count - 1
-            self.rgb_step_display()
-            self.show_pattern_seq()
-            self.track_select_display()
+            self.rgb_step_display()                         #RGB
+            self.show_pattern_seq()                         #RGB
+            self.track_select_display()                     #RGB
             
         elif self.display_mode == 1:
-            #TODO, the BPM doesn't update unless there's a switch back to the other mode and back?
+            # PATTERN DISPLAY MODE
             if skip_print_count == 0:
-                self.show_bpm()
+                self.show_bpm()                             #GREEN
                 skip_print_state = False
             else:
                 skip_print_count = skip_print_count - 1
-            self.show_patterngrid()
-            self.show_pattern_seq()
-            self.track_select_display()
+            self.show_patterngrid()                         #RGB
+            self.show_pattern_seq()                         #RGB
+            self.track_select_display()                     #RGB
             if skip_RGB_print_count == 0:
-                self.rgb_step_params_display(-1,-1)
+                self.rgb_step_params_display(-1,-1)         #RGB
                 skip_RGB_print_state = False
             else:
                 skip_RGB_print_count = skip_RGB_print_count - 1
                 #print("skip print count = {}".format(skip_print_count))
-                self.rgb_step_params_display(param_step,param_microstep)
+                self.rgb_step_params_display(param_step,param_microstep)    #RGB
         # Seriously DO NOT call these any more than necessary, it tanks performance.
         uh.show()
         show()
@@ -1272,6 +1409,8 @@ def change_param_index(name):
         pass
 
 def change_track(name):
+    global skip_print_count
+    global skip_print_state
     track_mapping = {
         "1":0,"2":1,"3":2,"4":3,"5":4,"f1":5,"f2":6,"f3":7,"f4":8,"f5":9
     }
@@ -1279,6 +1418,10 @@ def change_track(name):
         if(key_state["q"] == 'held'):
             if(track_key == name):
                 J1.set_active_track(track_mapping[track_key])
+                J1.get_active_song().show_track_name()
+                skip_print_count = 30
+                skip_print_state = True
+                show()
                 print("changed track")
 
 def change_bpm(name):
@@ -1436,22 +1579,24 @@ def handler(event: keyboard.KeyboardEvent):
 #                                                                               
 #   This is the code that makes sure everything is working, before we get off the ground
 
-def checkInput():
+def check_input():
     if exists("/dev/hidraw0"):
         print("Handwired Keyboard Detected")
     else:
         write_string('KB1 NF',kerning=False)
         show()
-        time.sleep(.5)
+        time.sleep(1.5)
         print("[bold red]Handwired Keyboard NOT found[bold red]")
+        sys.exit()
 
     if exists("/dev/hidraw1"): #
         print("BDN9 Keyboard Detected")
     else:
         write_string('KB2 NF',kerning=False)
         show()
-        time.sleep(.5)
+        time.sleep(1.5)
         print("[bold red]BDN9 Keyboard NOT found[bold red]")
+        sys.exit()
     # checking /dev/hidraw* may not be consistant, and the tested keyboard actually creates hidraw0 and hidraw1, but reading from /dev/usb didn't
     # seem to be as consistant, or was at the very least slower. If it needs changed later so be it
 
@@ -1474,6 +1619,10 @@ if PD_running:
     time.sleep(.25)
     port = mido.open_output("Pure Data Midi-In 1")
 
+port_pico = mido.open_output("Pico MIDI 1")
+
+check_input()
+
 #TODO check for connection to pico
 
 #TODO check and see what analog drums are connected.
@@ -1484,51 +1633,27 @@ from multiprocessing import Process
 p = Process(target=show_startup, args=(uh,))
 p.start()
 
-#  ::::::::::::.,:::::: .::::::.::::::::::::::::::.    :::.  .,-:::::/  
-#  ;;;;;;;;'''';;;;'''';;;`    `;;;;;;;;'''';;;`;;;;,  `;;;,;;-'````'   
-#       [[      [[cccc '[==/[[[[,    [[     [[[  [[[[[. '[[[[[   [[[[[[/
-#       $$      $$""""   '''    $    $$     $$$  $$$ "Y$c$$"$$c.    "$$ 
-#       88,     888oo,__88b    dP    88,    888  888    Y88 `Y8bo,,,o88o
-#       MMM     """"YUMMM"YMmMY"     MMM    MMM  MMM     YM   `'YMUP"YMM
+#  ______            __    __               _____            __                  __                           
+# /      |          /  |  /  |             /     |          /  |                /  |                          
+# $$$$$$/  _______  $$/  _$$ |_            $$$$$ | __    __ $$ |   __   ______  $$ |____    ______   __    __ 
+#   $$ |  /       \ /  |/ $$   |              $$ |/  |  /  |$$ |  /  | /      \ $$      \  /      \ /  \  /  |
+#   $$ |  $$$$$$$  |$$ |$$$$$$/          __   $$ |$$ |  $$ |$$ |_/$$/ /$$$$$$  |$$$$$$$  |/$$$$$$  |$$  \/$$/ 
+#   $$ |  $$ |  $$ |$$ |  $$ | __       /  |  $$ |$$ |  $$ |$$   $$<  $$    $$ |$$ |  $$ |$$ |  $$ | $$  $$<  
+#  _$$ |_ $$ |  $$ |$$ |  $$ |/  |      $$ \__$$ |$$ \__$$ |$$$$$$  \ $$$$$$$$/ $$ |__$$ |$$ \__$$ | /$$$$  \ 
+# / $$   |$$ |  $$ |$$ |  $$  $$/       $$    $$/ $$    $$/ $$ | $$  |$$       |$$    $$/ $$    $$/ /$$/ $$  |
+# $$$$$$/ $$/   $$/ $$/    $$$$/         $$$$$$/   $$$$$$/  $$/   $$/  $$$$$$$/ $$$$$$$/   $$$$$$/  $$/   $$/ 
+#                                                                                                             
 
 # "BD","TOM","SNARE","HAT","FM", or "DRONE". There can be duplicates. Order matters.
 
-modules = ["BD","TOM","SNARE","HAT","FM"]
+# modules = ["BD","TOM","SNARE","HAT","FM"]
+modules = ["BD","FM","SNARE","HAT","TOM"]
 
 J1 = Jukebox(modules)
-# This Jukebox object contains 16 songs, each song contains 16 patterns, each pattern 10 tracks/drums,
-# each track/drum 16 steps, and each step has 4 'micro steps'
-# Because of this, this jukebox object is actually fairly large - 163840 microsteps (bools) in total
-# and that's before considering the other data stored per step per drum
-J1.update_display()
-
-J1.save_all_songs()
-#showStartup(uh)
-
-S1 = J1.get_song(1)
-
-S1.set_pattern_seq_step(0, "up")
-S1.set_pattern_seq_step(1, "up")
-S1.set_pattern_seq_step(2, "down")
-S1.set_pattern_seq_step(3, "left")
-
-S1.set_pattern_seq_step(4, "right")
-S1.set_pattern_seq_step(5, "right")
-S1.set_pattern_seq_step(6, "right")
-S1.set_pattern_seq_step(7, "stay")
-
-#set it to the first digital drum track
-# TODO, this might require a bigger change, as right now the
-# active track is tied to the pattern, meaning on pattern
-# change the track being edited will also change
-# which would be a terrible user experiance.
-for k in range(10):
-    # make a 4-on-the-floor to test with.
-    for i in range(16):
-        J1.flip_microstep(i,0)
-
-# S1.show_pattern_seq()
-# S1.show_patterngrid()
+# # This Jukebox object contains 16 songs, each song contains 16 patterns, each pattern 10 tracks/drums,
+# # each track/drum 16 steps, and each step has 4 'micro steps'
+# # Because of this, this jukebox object is actually fairly large - 163840 microsteps (bools) in total
+# # and that's before considering the other data stored per step per drum
 
 
 #    _____ _            _     ___   ___  ____  

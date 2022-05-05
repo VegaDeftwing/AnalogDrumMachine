@@ -504,3 +504,100 @@ Also found a bug in my copy paste code- it wasn't making a deep copy. So, any pa
 ---
 
 **Week ending 3/25 = **6.5 hours, **total** = 74.1
+
+# Vega Carlson - Group 165 - Spring '22, Week 12
+
+## Saturday, April 2nd -- W:0.0 T:74.1
+
+**0.0hr** -- No Progress today
+
+## Sunday, April 3rd -- W:0.0 T:74.1
+
+**0.0hr** -- No Progress today
+
+## Monday, April 4th -- W:0.0 T:74.1
+
+**0.0hr** -- No Progress today
+
+## Tuesday, April 5th -- W:0.0 T:74.1
+
+**0.0hr** -- No Progress today
+
+## Wednesday, April 6th -- W:2.7 T:76.8
+
+**1.7hr** -- Got the controller board flashed with Circuit Python & got MIDI input and LED output working 
+
+**0.5hr** -- Meeting. See minutes.
+
+**0.5hr** -- Registering for the showcase
+
+## Thursday, April 7th  -- W:4.2 T:78.3
+
+**1.5hr** -- Started out by looking over Reid's OpenSCad work. I see a few things that need changed - namely the master volume & filter pot holes - but otherwise it looks good.
+
+Next up, I needed to look into how to get the LED matrix (using the IS31FL3731) in the keyboard working with QMK. The documentation for it is rather poor, so to start with I looked for a keyboard using the driver and with a similar layout. Strangely, many appear to be using the driver with RGB leds and I'm not even sure how that would be possible.
+
+It *appears* the ["Infinity 60%"](https://github.com/qmk/qmk_firmware/tree/master/keyboards/input_club/infinity60) is relatively close; however, it has way more code to make it work than I'd expect. Otherwise, [opendeck](https://github.com/qmk/qmk_firmware/tree/master/keyboards/opendeck) also looks light it might have good code to yoink'. Unfortunately, I am still going to need to make it so that I can controls the LEDs over serial, which will require a fair amount of work as that's a weird setup for QMK. Reading the docs, I *think* [Raw HID](https://docs.qmk.fm/#/feature_rawhid) is the best call and there is a python library for using it, but it's still going to be tricky. As I don't have the handwired keyboard on hand to test, I'm going to start by trying to get rawhid working with the BDN9 ... again, as I tried this last semester and failed.
+
+I am able to at least use the python HID library to get the device name back out, ~~but I'm having a hard time writing data, and there's basically no documentation here~~ Thankfully, my past python experiance came in handy, 
+
+`with hid.Device(0xcb10,0x2133) as h:
+	h.write((256).to_bytes(2,byteorder='big'))`
+
+seems to work, but I can't read data back out, even though it should be echoing what I write to it. It just sits and waits. As I know I can't get LED control from the many hours I already tried that, I'll see if I can get it to send a key on data reception instead.... nope.
+
+Things are starting to make more sense from reading https://github.com/Drugantibus/qmk-hid-rgb/blob/master/hid_rgb.py... though only a little. The associated keymap, https://github.com/Drugantibus/qmk_firmware/blob/master/keyboards/massdrop/alt/keymaps/drugo/keymap.c , makes it make a bit more sense, but this is going to take some more digesting. I'm going to wait until I have the other keyboard to go much further, as I really need the simpler LED matrix for debugging.
+
+> note, on this board RAW_EPSIZE is 32
+
+## Friday, April 8th -- W:8.0 T:82.1
+
+**1.5hr** - See Minutes + Work on case with Reid, setting up testing envrinoment for the control board with Caleb, discussion about how the entire project will fit together.
+
+**2.3** - Started by doing an apt-get update & upgrade on pi as it's been a minute. Then got to work on the 3x10 keyboard. After a lot of banging my head into a wall, I at least have the LED matrix able to be turned on and off via a keypress, though still not through sending messages as I need. ~~I think the host side isn't even *sending* the messages at all so rather than debug that I'm going to see if I can find an alternative~~
+
+I managed to get it to respond to RAWHID events, so I can now turn the leds on/off with a python command. Beyond needing to actually make it so I can turn on/off LEDs individually, I also need to figure out why the board keeps losing connection. It might just be a bad USB cable, though I also suspect there's a few point in the rats nest of wires that are trying to touch and short.
+
+---
+
+**Week ending 4/8 = **8.0 hours, **total** = 82.1
+
+# Vega Carlson - Group 165 - Spring '22, Week 13
+
+## Saturday, April 9th -- W:0.0 T:82.1
+
+**0.0hr** -- No Progress today
+
+## Sunday, April 10th -- W:0.0 T:82.1
+
+**0.0hr** -- No Progress today
+
+## Monday, April 11th -- W:1.6 T:83.7
+
+**1.6hr** -- Worked in the lab with Cole, made progress on the control board code
+
+## Tuesday, April 12th -- W:0.0 T:83.7
+
+**0.0hr** -- No Progress today
+
+## Wednesday, April 13th -- W:2.3 T:84.4
+
+**.2hr** -- Briefly worked in the lab with Reid 
+
+**0.5hr** -- Meeting. See minutes.
+
+## Thursday, Mar April 14th  -- W:2.3 T:84.4
+
+**0.0hr** -- No Progress today
+
+## Friday, April 15th -- W:7.7 T:89.8
+
+**.9hr** - Got the pi3b+ on UNL's wifi
+
+**2.1hr** - Got the pi working with the control board
+
+**2.4hr** - Got the powersupply connection the control board tested, tested connecting and triggering an analog drum connected to the control board via a 2x12 connection from a trigger sent from the Pi.
+
+---
+
+**Week ending 4/1 = **7.7 hours, **total** = 89.8
