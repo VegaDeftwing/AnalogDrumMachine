@@ -624,7 +624,7 @@ U 1 1 617DD6F7
 P 2600 6650
 F 0 "U8" H 2600 7017 50  0000 C CNN
 F 1 "TL072" H 2600 6926 50  0000 C CNN
-F 2 "Package_DIP:DIP-8_W7.62mm" H 2600 6650 50  0001 C CNN
+F 2 "Package_SO:SO-8_5.3x6.2mm_P1.27mm" H 2600 6650 50  0001 C CNN
 F 3 "http://www.ti.com/lit/ds/symlink/tl071.pdf" H 2600 6650 50  0001 C CNN
 	1    2600 6650
 	1    0    0    -1  
@@ -652,7 +652,7 @@ U 2 1 61834C36
 P 1500 7200
 F 0 "U8" H 1500 7567 50  0000 C CNN
 F 1 "TL072" H 1500 7476 50  0000 C CNN
-F 2 "Package_DIP:DIP-8_W7.62mm" H 1500 7200 50  0001 C CNN
+F 2 "Package_SO:SO-8_5.3x6.2mm_P1.27mm" H 1500 7200 50  0001 C CNN
 F 3 "http://www.ti.com/lit/ds/symlink/tl071.pdf" H 1500 7200 50  0001 C CNN
 	2    1500 7200
 	1    0    0    -1  
@@ -663,7 +663,7 @@ U 3 1 618377D6
 P 950 6800
 F 0 "U8" H 908 6846 50  0000 L CNN
 F 1 "TL072" H 908 6755 50  0000 L CNN
-F 2 "Package_DIP:DIP-8_W7.62mm" H 950 6800 50  0001 C CNN
+F 2 "Package_SO:SO-8_5.3x6.2mm_P1.27mm" H 950 6800 50  0001 C CNN
 F 3 "http://www.ti.com/lit/ds/symlink/tl071.pdf" H 950 6800 50  0001 C CNN
 	3    950  6800
 	1    0    0    -1  
