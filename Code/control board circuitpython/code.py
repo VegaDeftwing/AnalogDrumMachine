@@ -1,31 +1,16 @@
 #HOLDS LATEST VERSION OF code.py
 
-# SPDX-FileCopyrightText: 2021 ladyada for Adafruit Industries
-# SPDX-License-Identifier: MIT
-# simple_test
 import time
-
-# import random
 import usb_midi
 import adafruit_midi
 from adafruit_midi.control_change import ControlChange
 from adafruit_midi.note_off import NoteOff
 from adafruit_midi.note_on import NoteOn
-#from adafruit_midi.pitch_bend import PitchBend
 import board
 import digitalio
-
-
 import busio
 
-#channel1i2c = busio.I2C(board.GP3, board.GP2)
-#channel2i2c = busio.I2C(board.GP7, board.GP6)
-#channel3i2c = busio.I2C(board.GP11, board.GP10)
-#channel4i2c = busio.I2C(board.GP15, board.GP14)
-#channel5i2c = busio.I2C(board.GP19, board.GP18)
-
 chipAddress = 0x2F #default address for module with only one digipot
-
 fmChipAddress0 = 0x2F
 fmChipAddress1 = 0x2E
 fmChipAddress2 = 0x2D
@@ -67,12 +52,8 @@ midi = adafruit_midi.MIDI(
 )
 print("Midi test")
 # Convert channel numbers at the presentation layer to the ones musicians use
-# print("Default output channel:", midi.out_channel + 1)
-# print("Listening on input channel:", midi.in_channel + 1)
-#time.sleep(2)
 while True:
     msg = midi.receive()
-    #print(msg.channel)
     if msg is not None:
         print(msg.channel)
         if (msg.channel == 0):  # Channel 1 - Bass Drum
@@ -92,7 +73,7 @@ while True:
                         channel1i2c.writeto(chipAddress, bytes(byteList))
                     except:
                         pass
-                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                    finally:
                         channel1i2c.unlock()
                         channel1i2c.deinit()
             elif type(msg) == NoteOn:
@@ -107,111 +88,123 @@ while True:
                     frequency = msg.note
                     level = msg.velocity
                     registerValue *= 16
-                    #TODO: CHANGE BACK TO MSG FREQUENCY
-                    #byteList = [registerValue, frequency]
                     byteList = [registerValue, 1]
                     print(byteList)
                     #writing to digipot
-                    #channel1i2c.writeto(chipAddress, bytes(byteList))
                     channel1i2c.write(0x2F, bytes(byteList)) #frequency
                 except:
                     pass
-                finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                finally:
                     channel1i2c.unlock()
                     channel1i2c.deinit()
             elif type(msg) == NoteOff:
                 led0.value = False
                 pass
-        # elif msg.channel == 1: #Channel 2 - FM Drum
-        #     if(type(msg) == ControlChange):
-        #         if(msg.control == 0): #digi 2 (U3 wiper 0)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x00
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress0, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-        #         if(msg.control == 1): #digi 1 (U3 wiper 1)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x01
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress0, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-
-        #         if(msg.control == 2): #digi 4 (U6 wiper 0)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x00
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress1, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-        #         if(msg.control == 3): #digi 3 (U6 wiper 1)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x01
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress1, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-
-        #         if(msg.control == 4): #buffer pot (U7 wiper 0)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x00
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress2, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-        #         if(msg.control == 5): #APC1 out (U7 wiper 1)
-        #             while not channel2i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x01
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel2i2c.writeto(fmChipAddress2, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel2i2c.unlock()
-        #     elif type(msg) == NoteOn:
-        #         led1.value = True
-        #         fmDrumState = not fmDrumState
-        #         trig1.value = fmDrumState
-        #     elif type(msg) == NoteOff:
-        #         led1.value = False
-        #         pass
-        #test
+        elif msg.channel == 1: #Channel 2 - FM Drum - NOT INCLUDED IN FINAL DEMO
+            if(type(msg) == ControlChange):
+                if(msg.control == 0): #digi 2 (U3 wiper 0)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x00
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress0, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+                if(msg.control == 1): #digi 1 (U3 wiper 1)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x01
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress0, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+                if(msg.control == 2): #digi 4 (U6 wiper 0)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x00
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress1, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+                if(msg.control == 3): #digi 3 (U6 wiper 1)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x01
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress1, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+                if(msg.control == 4): #buffer pot (U7 wiper 0)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x00
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress2, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+                if(msg.control == 5): #APC1 out (U7 wiper 1)
+                    channel2i2c = busio.I2C(board.GP7, board.GP6)
+                    while not channel2i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x01
+                        digiPotValue = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, digiPotValue]
+                        print(byteList)
+                        #writing to digipot
+                        channel2i2c.writeto(fmChipAddress2, bytes(byteList))
+                    except:
+                        pass
+                    finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                        channel2i2c.unlock()
+            elif type(msg) == NoteOn:
+                led1.value = True
+                fmDrumState = not fmDrumState
+                trig1.value = fmDrumState
+            elif type(msg) == NoteOff:
+                led1.value = False
+                pass
         elif(msg.channel == 2): #Channel 3 - Snare
             if(type(msg) == NoteOn):
                 channel3i2c = busio.I2C(board.GP11, board.GP10)
@@ -243,24 +236,17 @@ while True:
                     channel3i2c.writeto(0x2F, bytes(byteList))
                 except:
                     pass
-                finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                finally:
                     channel3i2c.unlock()
                     channel3i2c.deinit()
             elif type(msg) == NoteOff:
-                # trig2.value = False
-                # print("TESTTTTTTT") #Do not remove!!!!
-                # trig2.value = True
                 led2.value = False
-                #  trig0.value = True
-                #pass
         if(msg.channel == 3): #Channel 4 - HiHat
             highHatDeviceAddress = 0x2F
             if type(msg) == NoteOn:
                 channel4i2c = busio.I2C(board.GP15, board.GP14)
                 print(msg.channel)
                 led3.value = True
-                # hiHatState = not hiHatState
-                # trig3.value = hiHatState
                 trig3.value = False
                 print("This Print Is Acting As A Delay") #Do not remove!!!!
                 trig3.value = True
@@ -286,55 +272,54 @@ while True:
                     channel4i2c.writeto(highHatDeviceAddress, bytes(byteList))
                 except:
                     pass
-                finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
+                finally:
                     channel4i2c.unlock()
                     channel4i2c.deinit()
             elif type(msg) == NoteOff:
                 led3.value = False
                 #  trig0.value = True
                 pass
-        # if(msg.channel == 4): #Channel 5 - Tom Drum
-        #     if type(msg) == ControlChange:
-        #         led4.value = True
-        #         print(msg.value)
-        #
-
-        #         if(msg.control == 0):
-        #             while not channel5i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x00
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel5i2c.writeto(chipAddress, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel5i2c.unlock()
-        #         elif(msg.control == 1):
-        #             while not channel5i2c.try_lock():
-        #                 pass
-        #             try:
-        #                 registerValue = 0x01
-        #                 digiPotValue = msg.value
-        #                 registerValue *= 16
-        #                 byteList = [registerValue, digiPotValue]
-        #                 print(byteList)
-        #                 #writing to digipot
-        #                 channel5i2c.writeto(chipAddress, bytes(byteList))
-        #             finally:  # unlock the i2c bus when ctrl-c'ing out of the loop
-        #                 channel5i2c.unlock()
-        #     elif type(msg) == NoteOn:
-        #         led4.value = True
-        #         tomDrumState = not tomDrumState
-        #         trig0.value = tomDrumState
-        #     elif type(msg) == NoteOff:
-        #         #trig0.value = True
-        #         led4.value = False
-        #         pass
-   # else:
-        #led.value = False
-        #print("Error: Null Message")
-   #     pass
-    # print("Received:", msg, "at", time.monotonic())
+        elif (msg.channel == 4):  # Channel 5 - Bass Drum
+            if type(msg) == ControlChange: #decay
+                print(msg.value)
+                if(msg.control == 0):
+                    channel5i2c = busio.I2C(board.GP19, board.GP18)
+                    while not channel1i2c.try_lock():
+                        pass
+                    try:
+                        registerValue = 0x01
+                        decay = msg.value
+                        registerValue *= 16
+                        byteList = [registerValue, decay]
+                        print(byteList)
+                        #writing to digipot
+                        channel5i2c.writeto(chipAddress, bytes(byteList))
+                    except:
+                        pass
+                    finally:
+                        channel5i2c.unlock()
+                        channel5i2c.deinit()
+            elif type(msg) == NoteOn:
+                led4.value = True
+                bassDrumState = not bassDrumState
+                trig4.value = bassDrumState
+                channel5i2c = busio.I2C(board.GP19, board.GP18)
+                while not channel5i2c.try_lock():
+                        pass
+                try:
+                    registerValue = 0x00
+                    frequency = msg.note
+                    level = msg.velocity
+                    registerValue *= 16
+                    byteList = [registerValue, frequency]
+                    print(byteList)
+                    #writing to digipot
+                    channel5i2c.write(0x2F, bytes(byteList)) #frequency
+                except:
+                    pass
+                finally:
+                    channel5i2c.unlock()
+                    channel5i2c.deinit()
+            elif type(msg) == NoteOff:
+                led4.value = False
+                pass
